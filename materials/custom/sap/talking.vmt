@@ -1,0 +1,5 @@
+"UnlitGeneric"
+{
+	"$basetexture" "custom/sap/talking"
+	"$alphatest" 1
+}
