@@ -1,0 +1,276 @@
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+How to make a TTS Voise for S.A.P Bots to use ingame
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+*THIS ONLY SUPPORTS ENGLISH TTS, AS MY PRIMARY LANGUAGE IS ENGLISH
+
+
+This involves some linguistics O_O
+but don't worry, it's literally as SIMPLE as recording some short seamless audio files with no
+silences at either end, for each sound / "Phoneme"
+
+I busted out some physical books, articles from the 80's,
+and debugged the heck outa it, to make this shit work,
+It ain't perfect, but it works, and is amazing.
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+Info :
+
+even if your Phonemes and etc sound garbage ingame, they may sound better with a future update of the mod,
+as the tts system is being reworked refined over time.
+the Phoneme Structure will persist and not change.
+
+a "Phoneme" is a sound you make with your mouth when you try to speak,
+words are built from them, and are sorta like segments coming together to form
+a whole word / the separate sounds of a word
+
+a "Grapheme" / "Graphemes" are common combinations of letters that trigger those sounds / "Phonemes"
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+SETUP :
+
+<YOUR MOD FOLDER>\sound\sapbots\tts\<YOUR TTS NAME>\phonem
+replace "<YOUR MOD FOLDER>" with your mod name
+replace "<YOUR TTS NAME>" with your tts name
+you can add more then one TTS by adding more then one inside <YOUR MOD FOLDER>\sound\sapbots\tts\...
+
+VERY HELPFUL NOTE :
+if you put your mod's folder inside
+\steamapps\common\GarrysMod\garrysmod\addons\
+such as :
+\steamapps\common\GarrysMod\garrysmod\addons\<YOUR MOD FOLDER>\...
+then it will autorun with the game without needing to compile a mod 'n do all that bullshit in advance each time
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+THE SOUND FILES :
+
+All sound files need to be .wav format,
+(44100 Hz) or whatever else works- probably just that though,
+Mono channel - only one audio channel,
+and some standard level of bit such as 16 bit.
+
+you can make your audio ANY FORMAT YOU WANT in ANY WAY
+if you want to use a program such as "AIMP" to bulk convert them to the correct format..
+you can download "AIMP" at https://www.aimp.ru/
+its what i've been using for bulk audio conversions,
+
+. download it, open it, make it go big window or whatever, if it goes to tray- double click
+. click the "AIMP" logo itself in the top left, it doesn't look like a button but it is.
+. click on "Utilities" with the icon of a bag
+. click "Audio Converter", it will open another window.
+. click the green "+" button in the top right
+. add your files
+. in the bottom middle of the screen, in the format input, select "WAVE"
+. to the right of that, select (44100 Hz / 16 Bit / Mono) 22050 also works
+. if your files are in another location that ain't the correct folder, you can tick "Move output to:" and set it
+. click the dropdown to the right of the blue setting sliders button in the top right to the right of the red "-"
+. click "Delete source file after successful conversion"
+. now click the tick box in the top left to select all sounds
+. press the start button in the bottom right
+
+now you should have sounds ready to work inside of Garry's Mod
+
+
+Below is a summarized, simplistic, layman's terms examples,
+of how these audiofiles are structured,
+and basically what sounds you gotta record...
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+"The 44* Phonemes"
+	- "wow 44? damn, that's a number i think O_O"
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+filename examples :
+b.wav
+d.wav
+th_.wav
+oo~.wav
+a~(r.wav
+
+filename = name + .wav
+
+
+X = Done
+V = could not find, replaced with closest in already done sounds
+
+
+Phoneme			Graphemes			Example Words
+(name) 	 (common letters)	(words that contain it, try and sound them out and figure it out)
+
+"consonant stuff"
+b	V			b,bb				(b)ig, ru(bb)er, (b)ear, (b)alls
+d	X			d,dd,ed				(d)og, a(dd), fill(ed), fuck(ed), (d)a(d)
+f	V			f,ph				(f)ish, (ph)one, (f)uck, (f)ight, (f)ly
+g	X			g,gg				(g)o, e(gg), (g)amer, (g)ust, gre(gg)
+h	X			h					(h)ot, (h)and, (h)ygiene
+j	V			j,g,ge,dge			(j)et, ca(g)e, bar(ge), ju(dge), (j)esus, (j)elly
+k	X			c,k,ck,ch,cc,que 	(c)at, (k)itten, du(ck), s(ch)ool, o(cc)ur, anti(que), che(que)
+l	X			l,ll				(l)oser, (l)eg, (l)ay, be(ll), a(ll)
+m	V			m,mm,mb				(m)ad, ha(mm)er, la(mb)
+n	X			n,nn,kn,gn			(n)o, di(nn)er, (kn)ee, (gn)ome, (kn)ow
+p	X			p,pp				(p)ie, (p)enis, (p)lay, a(pp)le
+r	X			r,rr,wr				(r)un, ma(rr)y, (wr)ite, (r)acism
+s	X			s,se,ss,c,ce,sc		(s)un, mou(se), dre(ss), (c)ity, i(ce), (sc)ience
+t	X			t,tt,ed				(t)op, (t)ight, le(tt)er, s(t)opped, (t)enis, (t)esticles, (t)iny
+v	X			v,ve				(v)et, gi(ve), (v)enus, (v)inny
+w	V			w					(w)et, (w)in, s(w)im
+y	X			y,i					(y)es, on(i)on, (y)esterday, (y)en
+z	X			z,zz,ze,s,se,x 		(z)ip, fi(zz), snee(ze), la(s)er, i(s), wa(s), plea(se), (x)ylophone
+"consonant digraphs"
+th_		X		th					(th)umb, (th)in, (th)ing, (th)under
+th	 (voiced) V	th					(th)is, fea(th)er, (th)en, (th)an
+ng		X		ng,n				si(ng), mo(n)key, si(n)k
+sh		V		sh,ss,ch,ti,ci		(sh)ip, mi(ss)ion, (ch)ef, mo(ti)on, spe(ci)al
+ch		V		ch,tch				(ch)ip, ma(tch), (ch)ad
+zh		V		ge,s				gara(ge), mea(s)ure, divi(s)ion
+wh		V		wh					(wh)at, (wh)en, (wh)ere, (wh)y
+"short vowels"
+a	X			a,au				h(a)t, l(au)gh
+e	X			e,ea				b(e)d, br(ea)d, r(e)d
+i	X			i					(i)f, (i)s
+o	X			o,a,au,aw,ough		h(o)t, wh(a)t, h(au)l, dr(aw), b(ough)t
+u	X			u,o					(u)p, t(o)n
+"long vowels"
+a_l		X		a,a_e,ay,ai,ey,ei	b(a)con, l(a)t(e), d(ay), tr(ai)n, th(ey), (ei)ght, v(ei)n
+e_l		X		e,e_e,ea,ee,ey,ie,y	m(e), th(e)s(e), b(ea)t, f(ee)t, k(ey), ch(ie)f, bab(y)
+i_l		X		i,i_e,igh,y,ie		f(i)nd, r(i)d(e), l(igh)t, fl(y), p(ie)
+o_l		X		o,o_e,oa,ou,ow		n(o), n(o)t(e), b(oa)t, s(ou)l, r(ow)
+u_l		X		u,u_e,ew			h(u)man, (u)s(e), f(ew), ch(ew)
+"other vowel"
+oo		V		oo,u,oul			b(oo)k, p(u)t, c(oul)d
+oo~		V		oo,u,u_e			m(oo)n, tr(u)th, r(u)l(e)
+"vowel diphthongs"
+ow		X		ow,ou,ou_e			c(ow), (ou)t, m(ou)s(e), h(ou)s(e)
+oy		X		oi,oy				c(oi)n, t(oy), j(oy)
+"vowel sounds influenced by R"
+a(r		X		ar					c(ar), j(ar)
+a~(r	X		air,ear,are			(air), ch(air), f(air), h(air), b(ear), c(are)
+i(r		X		irr,ere,eer			m(irr)or, h(ere), ch(eer)
+o(r		X		or,ore,oor			f(or), c(ore), d(oor)
+u(r		X		ur,ir,er,ear,or,ar	b(ur)n, f(ir)st, f(er)n, h(ear)d, w(or)k, doll(ar)
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+If you cannot figure out the sound of something enough, then just use a program like "Crowbar"
+to rip apart this mod's files 'n listen to how the tts sounds in the default mod sound, for reference.
+
+If this isn't helpful enough, here's a random page doc thing that may help :
+https://www.boardman.k12.oh.us/userfiles/363/Phonological%20Awareness/44Phonemes.pdf
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+WORD SETS / WORD PRESETS
+(optional but usable if you want to recreate the personality of a voice better)
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+make a "words" folder, as seen below.
+
+<YOUR MOD FOLDER>\sound\sapbots\tts\<YOUR TTS NAME>\words
+replace "<YOUR MOD FOLDER>" with your mod name
+replace "<YOUR TTS NAME>" with your tts name
+simular as before, but now we're in a "words" folder.
+
+
+WARNING : word audio files cannot have the same name as a phoneme audio file or issues will occur
+and stuff will be overridden and run like garbage, such as "i" or "a"
+
+
+same audio format as before, same Hz, bit and etc.
+
+make audio files and put them into the words folder,
+the name of the file is what they will trigger / replace in the tts,
+and the contents can be whatever, but is recommended to be the word they are named.
+an example of a very rare exception is :
+	The word "map" being replaced with the word "world" in the Heavy tf2 text to speech
+	that comes with the mod.
+
+it is recommended that you use these word sets / word presets-
+for commonly used words, such as "the", "and", "this", "want", "much", "like", "hate", "kill", "you"... and whatever others,
+if you even use these at all, again- they are optional, and used situationally and merged with other sounds
+
+it is NOT recommended to have 50 thousand damn words in here, bloating the file size.
+keep your mods not fucking 100mb please, please under like 20mb max,
+also the more you add the more bullshit the game needs to process, these are not a good approach compared to phonemes, but are a quality control thing mostly,
+for things like lisps and exact perfect saying of words 
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+DEATH SOUNDS
+(optional but good if you want your tts voice to make noises on death, or premade lines)
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+make a "deaths" folder, as seen below.
+
+<YOUR MOD FOLDER>\sound\sapbots\tts\<YOUR TTS NAME>\deaths
+replace "<YOUR MOD FOLDER>" with your mod name
+replace "<YOUR TTS NAME>" with your tts name
+simular as before, but now we're in a "deaths" folder.
+
+
+same audio format as before, same Hz, bit and etc.
+
+make audio files and put them into the deaths folder,
+the names do not matter and don't have any numbering or order, they can be whatever name you want.
+
+they can be longer entire bits of premade dialog or audio,
+or simple death grunts or etc, its a wide range of possibilities..
+
+REMEMBER : THEY HAVE DIED, THIS PLAYS ON THEIR DEATH, try not to make a corpse talk too much lol
+
+heck you could even just put meme sound effects if your tts is a joke :)
+or screaming even, loud horrible screaming, lots and lots of screaming :)
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+
+FINISHING
+
+download the program "Crowbar" from the download link on the page :
+https://steamcommunity.com/groups/CrowbarTool
+
+download and setup the program "7Zip", you already should, it's the best zip program out there.
+https://www.7-zip.org/download.html
+
+.unzip Crowbar using 7Zip via right clicking it, if you don't get this option, then restart your computer.
+here's an actually Helpful guide lol :
+. click the Publish tab in Crowbar
+. at the top of the screen, select your Game.. "Garry's Mod" obviously
+. go read the important bits of : https://wiki.facepunch.com/gmod/Steam_Workshop_Rules
+. in the title input feild in the middle of the screen, put the title of your mod
+. include "[SapbotTTS]" or whatever kind of S.A.P Bot thing you've made, such as "[SapbotTTS]", with the [] but without the "" accordingly,
+so people can find your mod on-topic easier
+. write your description - - -
+do header text like this :
+[h1]Bla Bla Bla[/h1]
+do bold text like this :
+[b]Bla Bla BLa[/b]
+you can put links,
+do images like this :
+[img]https://bla_bla_bla.com/image.png[/img]
+rest of the formatting you can find somewhere online.
+- - -
+. write something in your "Change Note" on the right, such as "first version, added the tts, bla bla"
+. click the "Browse..." button to the right of the "Content Folder or File" feild
+. input the folder of your mod folder, such as <YOUR MOD FOLDER> mentioned above in this guide :)
+. now go off into Microsoft Paint or whatever you want, and make your mod icon, needs to be .png, and hopefully square.
+. click the "Browse..." button to the right of the "Preview Image" feild, and select your lovely mod icon image :)
+. set the "Visibility" to whatever you want, in the bottom left, i would select "Public" so others can see it instantly on the workshop,
+instead of it being private to friends or etc, SHARE YA SHIT PEOPLE :) wooo
+. to the right of the screen, click the Type dropdown and select "Server Content"
+. now click whatever tags you want, i would click "Roleplay" and "Fun", but its up to you
+. now go to the bottom left of the screen, and click "Publish"
+. now go to your steam profile, click on your workshop content, and then click the now just uploaded 'n still loading workshop page.
+. wait unpatiently... O_O
+. do any last-minute edits to your now fully loaded and uploaded workshop page,
+such as editting the change note if you want via the change notes tab, editting the visibility again to be public,
+uploading more images to your workshop page via steam or a video.
+. add to the "required items" of the mod, the S.A.P Bot mod itself,
+so your mod doesn't get flagged for not working by some random admin 'n bad shit happens O_O
+. link it to your friends, and the rest of us :)

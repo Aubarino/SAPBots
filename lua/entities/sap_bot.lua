@@ -89,6 +89,23 @@ ENT.CurrentWeapon = nil
 
 --"fun"
 ENT.Fun_AggressionMode = false
+ENT.Fun_ActivePathingMode = false --an experiment of mine into non-navmesh pathing of nextbots!
+ENT.Fun_ActivePath = {} --the position vectors defining the path of active pathing
+ENT.Fun_IgnoreDoor = false
+
+--actions
+ENT.ActionOverride = nil --things such as "door"
+ENT.ActionOverrideEnt = nil
+ENT.ActionOverrideAngle = nil
+
+ENT.SapLastPos = Vector(0,0,0)
+ENT.LastTargetPos = Vector(0,0,0) --the last target pos, in all movement systems
+ENT.FakeTargetPos = Vector(4000,0,110) --the last fake target pos, in all movement systems / mostly active path
+ENT.ActivePathStepMax = 100 --the max steps the active pathing can make her path calc before redoing it entirely
+ENT.ActivePathSteps = 100 --the current active path step count left per this path
+ENT.ActivePathStepSize = 128 --defines how large in world space a active path step is, kind of like navmesh path follower segments
+ENT.ActivePathFirstPos = Vector(0,0,0)
+ENT.ActivePathLookAngle = 0 --yaw
 
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
@@ -389,11 +406,34 @@ function ENT:Initialize()
     end
     self:PhysicsInitShadow()
 
-    self:SetCollisionGroup(COLLISION_GROUP_INTERACTIVE_DEBRIS)
+    if (self.Fun_IgnoreDoor) then
+        self:SetCollisionGroup(COLLISION_GROUP_NONE)
+        local entIndex = self:EntIndex()
+        local entclass = self:GetClass()
+        local entclassmain = self:GetClass()
+
+        hook.Add( "ShouldCollide", "SapCustomDoorCollision", function( ent1, ent2 )
+            if !IsValid(self) then hook.Remove('ShouldCollide', 'SapCustomDoorCollision'..self:EntIndex()) return end
+            entclass = ent2:GetClass()
+            entclassmain = ent1:GetClass()
+            if ((entclass == "prop_door_rotating" or entclass == "prop_physics" or entclass == "func_door" or entclass == "func_door_rotating")
+            or (entclassmain == "prop_door_rotating" or entclassmain == "prop_physics" or entclassmain == "func_door" or entclassmain == "func_door_rotating")) then return false end
+        end )
+
+        self:SetCustomCollisionCheck(true)
+    else
+        self:SetCollisionGroup(COLLISION_GROUP_INTERACTIVE_DEBRIS)
+    end
 
     self:AddCallback('PhysicsCollide',function(self,data)
         self:HandleCollision(data)
     end)
+
+    if (self.Fun_ActivePathingMode) then
+        self:SetMoveType(MOVETYPE_VPHYSICS)
+    end
+
+    
 
     self:InitRelaHooks() -- relationship shit mostly
 end
@@ -1008,6 +1048,7 @@ function ENT:TTSSpeak(ttstext)
     lowerver = string.gsub(lowerver, "8", "eight ")
     lowerver = string.gsub(lowerver, "9", "nine ")
     lowerver = string.gsub(lowerver, "%p", ",")
+    --added note from way later- WHY THE FUCK IS THIS LIKE THIS!? WTF!??? kill yourself! me!
 
     local ttsscri = ToTTSscript(lowerver,_SapbotDG_TTSSets[self.TTSname])
     --print(ttsscri)
@@ -1136,6 +1177,7 @@ function ENT:EnemyReaction()
                 path:SetMinLookAheadDistance( options.lookahead or 300 )
                 path:SetGoalTolerance( options.tolerance or 20 )
                 path:Compute(self, posgoal)
+                self.LastTargetPos = posgoal
         
                 --if ( !path:IsValid() ) then return "fuck" end
         
@@ -1149,7 +1191,7 @@ function ENT:EnemyReaction()
 
                 self.AttackMode = 0
                 local AltDelay = CurTime() + math.Rand(0.5,10)
-                while ( path:IsValid() and (math.abs(self:GetPos():Distance(posgoal)) > 16) and TargetInRange and (self.BadNearEnt != nil) 
+                while ((path:IsValid() and math.abs(self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and TargetInRange and (self.BadNearEnt != nil) 
                     and !(entitytarget == nil or entitytarget == NULL or !entitytarget:IsValid())) do
                     local comlogSimple = ((self.Sap_SM_corruption > 0.75) and (self.Stress > 3)) --attacking comprehension
                     local comlogComple = ((self.Sap_SM_corruption > 0.5) and (self.Sap_SM_corruption < 0.75) and (self.Stress < 3))
@@ -1173,6 +1215,7 @@ function ENT:EnemyReaction()
                             if (self.AttackMode != 1 and self.AttackMode != 2) then
                                 self.AttackMode = 1
                                 path:Compute(self, targetpos)
+                                self.LastTargetPos = targetpos
                             end
                         else
                             if (self.AttackMode == 1 or self.AttackMode == 2) then
@@ -1232,24 +1275,35 @@ function ENT:EnemyReaction()
                         if (self.AttackMode == 1 or self.AttackMode == 2) then --follow moving
                             if (path:GetAge() > 0.5) then
                                 path:Compute(self, targetpos)
+                                self.LastTargetPos = targetpos
+                                self:ActionProcess() --do sap action stuff
                             end
                             path:Update(self)
+                            self:LocoInterjection(path)
                         end
 
-                        self.loco:FaceTowards(targetpos)
+                        self:GoalFaceTowards(targetpos,true)
                     else --running code
                         local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
                         local posgoal = self:GetPos() + posgoaladditi
             
                         if (path:GetAge() > 0.5) then
+                            self:ActionProcess() --do sap action stuff
                             path:Compute(self, posgoal) --calc some shit, cmon baby, you got this, cmon, work dammit!
+                            self.LastTargetPos = posgoal
                         end
+                        self:GoalFaceTowards(posgoal,false)
                         path:Update(self)
+                        self:LocoInterjection(path)
                         
                         if (SAPBOTDEBUG) then path:Draw() end
                         -- if ( self.loco:IsStuck() ) then
                         -- end
                         TargetInRange = self:ScanEntities()
+                    end
+
+                    if (self.Fun_ActivePathingMode) then
+                        self:FunActivePathing()
                     end
                     coroutine.yield()
                 end
@@ -1293,6 +1347,154 @@ function ENT:EquipRandomWeapon() --equip random weapon, obviously, you fucking m
     end
 end
 
+function ENT:ActionProcess() --processes sap bot actions 'n such
+    if (self.ActionOverride != nil) then
+        --ENT.ActionOverride = nil
+        --ENT.ActionOverrideEnt = nil
+        local waswalking = self.Walking
+        local oldaccel = self.loco:GetAcceleration()
+        local olddesspeed = self.loco:GetDesiredSpeed()
+
+        if (self.ActionOverride == "door" && !self.Fun_IgnoreDoor) then --sap opens door sap action thing
+            --path:GetAge()
+            self.ActionOverrideEnt:Fire("Use") --open door
+            --coroutine.wait(0.15)
+            local doormodelmin, doormodelmax = self.ActionOverrideEnt:GetModelBounds()
+            local doormodeloffset = doormodelmin + (doormodelmax * 0.5)
+            local leavedoor = self.ActionOverrideEnt:GetPos() + (self.ActionOverrideAngle * -110) - doormodeloffset
+            local prepdoor = self.ActionOverrideEnt:GetPos() + (self.ActionOverrideAngle * 110) - doormodeloffset
+            local walkingintodoor = 1
+            local options = {}
+            local path = Path( "Follow" )
+            path:SetMinLookAheadDistance( options.lookahead or 300 )
+            path:SetGoalTolerance( options.tolerance or 20 )
+            self.Walking = true
+            self.loco:SetDesiredSpeed( 200 )
+            self.loco:SetAcceleration(800)
+            while (walkingintodoor != 0) do --walking through door
+                self:GoalFaceTowards(leavedoor,false)
+                if (walkingintodoor == 1) then --step back from door
+                    path:Compute(self, prepdoor)
+                    self.LastTargetPos = prepdoor
+                    walkingintodoor = 2
+                end
+                if (!path:IsValid()) then
+                    if (walkingintodoor == 2) then --step through door and leave door
+                        path:Compute(self, leavedoor)
+                        self.LastTargetPos = leavedoor
+                         coroutine.wait(0.5)
+                        walkingintodoor = 3
+                    elseif(walkingintodoor == 3) then --stop door stuff
+                        walkingintodoor = 0
+                    end
+                end
+                path:Update(self)
+                self:LocoInterjection(path)
+                if (self.Fun_ActivePathingMode) then
+                    self:FunActivePathing()
+                end
+                if (SAPBOTDEBUG) then path:Draw() end
+                coroutine.yield()
+            end
+        end
+
+        self.Walking = waswalking
+        self.loco:SetDesiredSpeed(olddesspeed)
+        self.loco:SetAcceleration(oldaccel)
+        self.ActionOverride = nil
+        self.ActionOverrideAngle = nil
+        self.ActionOverrideEnt = nil
+    end
+end
+
+function ENT:LocoInterjection(pathinput) --locomotion interjections such as checks for if it should jump, execute every update of locomotion anywhere please
+    self:JumpCheck(pathinput)
+    if (self.LocInterjecTime == nil or CurTime() > self.LocInterjecTime) then
+        self.LocInterjecTime = CurTime() + 0.5
+
+        --stuck management
+        if ((self.SapLastPos:Distance(self:GetPos()) < 10) && !self.Fun_ActivePathingMode) then --if pos is same as last check then i'm stuck
+            self.SapLastPos = self:GetPos()
+            local CheckPos = self:GetPos()
+            for i=1,32,1 do
+                local GoalPos = self:GetPos() + Vector(math.random(-30,30), math.random(-30,30), math.random(0,8))
+                if (util.IsInWorld(GoalPos)) then
+                    local posModelOffsetMin, posModelOffsetMax = self:GetModelBounds()
+                    local coltracetabl = {
+                        ["start"] = GoalPos,
+                        ["endpos"] = GoalPos,
+                        ["maxs"] = Vector(posModelOffsetMax.x,posModelOffsetMax.y,posModelOffsetMax.z * 1),
+                        ["mins"] = Vector(posModelOffsetMin.x,posModelOffsetMin.y,posModelOffsetMin.z * 1),
+                        ["filter"] = self,
+                        ["mask"] = MASK_SOLID,
+                        ["collisiongroup"] = COLLISION_GROUP_INTERACTIVE_DEBRIS,
+                        ["ignoreworld"] = false
+                    }
+                    local coltrace = util.TraceHull(coltracetabl)
+                    if (!coltrace.Hit) then
+                        CheckPos = GoalPos
+                    end
+                end
+            end
+            self:SetPos(CheckPos)
+            self.loco:SetVelocity(Vector(0,0,0))
+            self:SetAngles(Angle(0,math.random(0,360),0))
+            if (math.random(0,2) == 0) then
+                local weirdgoal = CheckPos + Vector(math.random(-256,256), math.random(-256,256), 0)
+                pathinput:Compute(self, weirdgoal)
+                self.LastTargetPos = weirdgoal
+            end
+        else --not stuck, has moved
+            if (self.Fun_ActivePathingMode) then
+                self:FunActivePathing()
+            end
+
+            self.SapLastPos = self:GetPos()
+        end
+    end
+end
+
+function ENT:JumpCheck(pathinput) --checks for jump, if can then jump
+
+    if (self:IsOnGround()) then
+        if (self.justjumped != nil) then
+            self.justjumped = nil
+            self:StartActivity(HTgetAnimRun(self.CurWeaponHT))
+        else
+            if (IsValid(pathinput)) then
+                local SegmentForward = pathinput:FirstSegment()["forward"]
+                local CurGoal = pathinput:GetCursorData()["pos"]
+                local posModelOffsetMin, posModelOffsetMax = self:GetModelBounds()
+                local jumptracetabl = {
+                    ["start"] = CurGoal + Vector(0,0,32),
+                    ["endpos"] = CurGoal + Vector(0,0,32) + (SegmentForward * 64),
+                    ["maxs"] = Vector(5,5,2),
+                    ["mins"] = Vector(-5,5,-2),
+                    ["filter"] = self,
+                    ["mask"] = MASK_SOLID,
+                    ["collisiongroup"] = COLLISION_GROUP_INTERACTIVE_DEBRIS,
+                    ["ignoreworld"] = false
+                }
+                local jumptrace = util.TraceHull(jumptracetabl)
+                if (jumptrace.Hit) then
+                    local entclass = jumptrace.Entity:GetClass()
+                    if (!(entclass == "prop_door_rotating" or entclass == "func_door" or entclass == "func_door_rotating")) then
+                        self:StartActivity(HTgetAnimJump(self.CurWeaponHT))
+                        self.loco:JumpAcrossGap(CurGoal + (SegmentForward * 128) + Vector(0,0,32), SegmentForward + Vector(0,0,2))
+                        self.justjumped = true
+                        coroutine.wait(0.02)
+                        self:StartActivity(HTgetAnimJump(self.CurWeaponHT))
+                        coroutine.wait(0.05)
+                        self:StartActivity(HTgetAnimJump(self.CurWeaponHT))
+                        coroutine.wait(0.1)
+                        self:StartActivity(HTgetAnimJump(self.CurWeaponHT))
+                    end
+                end
+            end
+        end
+    end
+end
+
 --the main code 'n such i guess, THE BRAIN kinda
 function ENT:RunBehaviour()
     if ((self.TTSname == "") or (self.TTSname == nil) or (self.TTSname == 0)) then
@@ -1315,13 +1517,24 @@ function ENT:RunBehaviour()
     self.EmotionEnabled = false
     self.Living = true
     self.Dead = false
-    self.loco:SetJumpHeight(70)
-    self.loco:SetAvoidAllowed(true)
-    self.loco:SetDeathDropHeight(200)
-    self.loco:SetGravity(GetConVar("sv_gravity"):GetFloat())
-    self.loco:SetDesiredSpeed( 200 )
-    self.loco:SetAcceleration(800)
-    self.loco:SetJumpGapsAllowed(true)
+    if (!self.Fun_ActivePathingMode) then --must not be in active path mode
+        self.loco:SetJumpHeight(70)
+        if (self.Fun_IgnoreDoor) then
+            self.loco:SetAvoidAllowed(false)
+            self:SetSolidMask(MASK_NPCWORLDSTATIC)
+        else
+            self.loco:SetAvoidAllowed(true)
+        end
+        self.loco:SetDeathDropHeight(200)
+        self.loco:SetGravity(GetConVar("sv_gravity"):GetFloat())
+        self.loco:SetDesiredSpeed( 200 )
+        if (self.Fun_IgnoreDoor) then
+            self.loco:SetAcceleration(10000)
+        else
+            self.loco:SetAcceleration(800)
+        end
+        self.loco:SetJumpGapsAllowed(true)
+    end
 	self.LoseTargetDist	= 2000
 	self.SearchRadius = 1000
     self:StartActivity( ACT_HL2MP_IDLE )
@@ -1336,6 +1549,16 @@ function ENT:RunBehaviour()
         table.insert(_SAPBOTS,self)
         --if (SAPBOTDEBUG and SERVER) then print("S.A.P Bot Cached with ID "..#_SAPBOTS.." into _SAPBOTS") end
         self.SAPCached = true
+    end
+    
+    if (self.Fun_ActivePathingMode) then
+        --self:PhysicsInit(SOLID_BBOX)
+        local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
+        self:PhysicsInitBox(posModelOffsetMin,posModelOffsetMax, "default" )
+        --zlocal pos = self:GetPos() + Vector(0,0,posModelOffsetMax.z + 15)
+        self:SetMoveType(MOVETYPE_VPHYSICS)
+        self:Activate()
+        self:PhysWake()
     end
 
     coroutine.wait(0.15)
@@ -1415,6 +1638,7 @@ function ENT:RunBehaviour()
         path:SetMinLookAheadDistance( options.lookahead or 300 )
         --path:SetGoalTolerance( options.tolerance or 20 )
         path:Compute(self, posgoal)
+        self.LastTargetPos = posgoal
         --if ( !path:IsValid() ) then return "fuck" end
         self.loco:SetDesiredSpeed( 200 )
         self.loco:SetAcceleration(800) --walk drifting
@@ -1422,12 +1646,15 @@ function ENT:RunBehaviour()
         self.Walking = true
         self:StartActivity( HTgetAnimRun(self.CurWeaponHT) )
         local WalkOverride = false
-        while (path:IsValid() and (self:GetPos():Distance(posgoal)) > 16 and !WalkOverride) do --running around and such 
+        while ((path:IsValid() and (self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and !WalkOverride) do --running around and such
             if ( path:GetAge() > 0.75 ) then
-                if (!util.IsInWorld(path:GetAllSegments()[#path:GetAllSegments()]["pos"])) then
-                    posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
+                if (path:IsValid()) then --must have a path
+                    if (!util.IsInWorld(path:GetAllSegments()[#path:GetAllSegments()]["pos"])) then
+                        posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
+                    end
                 end
-                path:Compute(self, posgoal) --running to a spot 'n such
+                self:ActionProcess() --do sap action stuff
+                if (path:IsValid()) then path:Compute(self, posgoal) end --running to a spot 'n such
                 local EnemReac = self:EnemyReaction()
                 if (EnemReac) then
                     posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
@@ -1437,6 +1664,10 @@ function ENT:RunBehaviour()
                 end
             end
             path:Update( self )
+            self:LocoInterjection(path)
+            if (self.Fun_ActivePathingMode) then
+                self:FunActivePathing()
+            end
             if (SAPBOTDEBUG) then path:Draw() end
             coroutine.yield()
         end
@@ -1445,8 +1676,181 @@ function ENT:RunBehaviour()
 
         self:ThinkingProcess()
 
+        if (self.Fun_ActivePathingMode) then
+            self:FunActivePathing()
+        end
+
 		coroutine.yield()
 	end
+end
+
+function myDot(a, b)
+    return (a[1] * b[1]) + (a[2] * b[2]) + (a[3] * b[3])
+end
+function myMag(a)
+    return math.sqrt((a[1] * a[1]) + (a[2] * a[2]) + (a[3] * a[3]))
+end
+
+function ENT:GoalFaceTowards(targetpos,override) --container for both normal face towards function and fun active pathing looking when no nav mesh
+    if (self.Fun_ActivePathingMode) then
+        local posNorm = {self:GetPos().x,self:GetPos().y,self:GetPos().z}
+        local targNorm = {targetpos.x - self:GetPos().x,targetpos.y - self:GetPos().y,targetpos.z - self:GetPos().z}
+        local ansAgain = math.acos(myDot(posNorm, targNorm) / (myMag(posNorm) * myMag(targNorm)))
+        self.ActivePathLookAngle = ansAgain
+    else
+        self.loco:FaceTowards(targetpos)
+    end
+end
+
+--testing area 23/8/2024-
+function ENT:FunActivePathing() --THIS IS NOT FUN, also kind of like locomotion interjection, as it runs around most pathing, but this replaces its job entirely instead of inject
+    if (!self.Fun_ActivePathingMode) then return end
+    local desireSpeed = self.loco:GetDesiredSpeed()
+    local phys = self:GetPhysicsObject()
+    local oldVelocity = phys:GetVelocity();
+    phys:SetDragCoefficient(0)
+
+    if (#self.Fun_ActivePath > 0) then
+        if (!self.Walking) then
+            self.Fun_ActivePath = {}
+        else --when actually moving to the position
+            local shortestIndex = 0
+            local shortestIndexDistance = 99999999
+            local tempDist = 0
+            for i = 0,#self.Fun_ActivePath,1 do --compare distances and get closest active path segment using cheaper distance compare
+                if (self.Fun_ActivePath[i] != nil) then
+                    if (self.Fun_ActivePath[i - 1] != nil) then
+                        tempDist = (self:GetPos() - (self.Fun_ActivePath[i - 1] * 0.025)):Distance2DSqr(self.Fun_ActivePath[i])
+                    else
+                        tempDist = (self:GetPos()):Distance2DSqr(self.Fun_ActivePath[i])
+                    end
+                    
+                    if ((tempDist < shortestIndexDistance)) then
+                        shortestIndex = i
+                        shortestIndexDistance = tempDist
+                    end
+                end
+            end
+            local predictSegmentIndex = shortestIndex
+            if (predictSegmentIndex < #self.Fun_ActivePath) then predictSegmentIndex = shortestIndex + 1 --avoid going out of range
+            elseif (predictSegmentIndex == #self.Fun_ActivePath) then
+                self.Walking = false;
+                self.Fun_ActivePath = {}
+                return
+            end
+            
+            local dirVec = (self.Fun_ActivePath[predictSegmentIndex] - self:GetPos()):GetNormalized() --get the relative vector to where it must go
+            --print("Currently Pathing To "..predictSegmentIndex.." Total "..#self.Fun_ActivePath)
+
+            self:GoalFaceTowards((self.Fun_ActivePath[predictSegmentIndex] - self:GetPos()),false)
+            phys:SetAngles(Angle(0,math.deg(self.ActivePathLookAngle),0))
+            self.loco:SetVelocity(Vector(dirVec.x * desireSpeed,dirVec.y * desireSpeed,0))
+            phys:SetAngleVelocity(Vector(0,0,0))
+            phys:SetVelocity(Vector((dirVec.x * desireSpeed * 0.2) + (oldVelocity.x * 0.8),(dirVec.y * desireSpeed * 0.2) + (oldVelocity.y * 0.8),oldVelocity.z))
+        end
+    else --when not moving to the position
+        if (self.Walking) then
+            self:CalcActivePath()
+        end
+        phys:SetAngles(Angle(0,math.deg(self.ActivePathLookAngle),0))
+        self.loco:SetVelocity(Vector(0,0,0))
+        phys:SetAngleVelocity(Vector(0,0,0))
+        phys:SetVelocity(Vector(0,0,oldVelocity.z))
+    end
+
+    self:SetFriction(0)
+    phys:EnableDrag(false)
+    phys:EnableMotion(true)
+    phys:SetContents(CONTENTS_MONSTER)
+    phys:SetMass(5)
+    phys:Wake()
+end
+
+function ENT:CalcActivePath()
+    self.FakeTargetPos = self.LastTargetPos
+
+    self.ActivePathSteps = self.ActivePathStepMax
+    self.Fun_ActivePath = {self:GetPos() + self:GetActivePathBasePos()}
+    local segmentPos = Vector(0,0,0) -- defined once per calc, is the pos the segment will go to
+    local segmentPosTemp = Vector(0,0,0)
+    local lastSegmentPos = self:GetPos() -- is the pos of the last processed segment spot
+    local tempDist = 0
+    local lastNetworkedValue = -1
+    self.ActivePathFirstPos = self:GetPos()
+
+    while(self.ActivePathSteps > 0) do
+        local thisSegment = self:TraceActivePath(lastSegmentPos,self.FakeTargetPos + self:GetActivePathBasePos())
+        if (!thisSegment.Hit) then --if there is nothing at all, then it would keep going out of bounds of steps, so then we have no steps left
+            segmentPos = self:ClampTotalVectorRange(self.FakeTargetPos + self:GetActivePathBasePos(),self.ActivePathStepSize * self.ActivePathSteps) --limit the range within reason, for steps
+            if (segmentPos != lastSegmentPos) then
+                table.insert(self.Fun_ActivePath, segmentPos) end
+            self.ActivePathSteps = 0
+            lastSegmentPos = segmentPos - self:GetActivePathBasePos()
+        else
+            tempDist = lastSegmentPos:Distance(thisSegment.HitPos) --store distance to save processing
+            if (tempDist > self.ActivePathStepSize * self.ActivePathSteps) then --if hit surface but outside of range
+                segmentPos = self:ClampTotalVectorRange(thisSegment.HitPos,self.ActivePathStepSize * self.ActivePathSteps) --limit the range within reason, for steps
+                if (segmentPos != lastSegmentPos) then
+                    table.insert(self.Fun_ActivePath, segmentPos) end
+                self.ActivePathSteps = 0
+                lastSegmentPos = segmentPos - self:GetActivePathBasePos()
+            else --if hit surface and within step range
+                segmentPos = thisSegment.HitPos
+                local surfAngleNorm = (thisSegment.Normal) --go along the surface it hits a bit
+                surfAngleNorm:Rotate(Angle(0,90,0))
+                segmentPosTemp = self:TraceActivePath(segmentPos + (self:GetActivePathBasePos() * 0.01),((segmentPos + (self:GetActivePathBasePos() * 0.01)) + (surfAngleNorm * self.ActivePathStepSize * 1)))
+                if (segmentPosTemp.Hit)then --if cannot go left
+                    surfAngleNorm = (thisSegment.Normal) --go along the surface it hits a bit
+                    surfAngleNorm:Rotate(Angle(0,-180,0))
+                    segmentPosTemp = self:TraceActivePath(segmentPos + (self:GetActivePathBasePos() * 0.01),((segmentPos + (self:GetActivePathBasePos() * 0.01)) + (surfAngleNorm * self.ActivePathStepSize * 1)))
+                end
+                segmentPos = segmentPosTemp.HitPos --ok with this for now
+                if (segmentPos != lastSegmentPos) then
+                    table.insert(self.Fun_ActivePath, segmentPos) end
+
+                self.ActivePathSteps = math.Round(((self.ActivePathStepSize * self.ActivePathSteps) - tempDist) / self.ActivePathStepSize)
+                lastSegmentPos = segmentPos - self:GetActivePathBasePos()
+            end
+        end
+
+        if (SERVER) then
+            lastNetworkedValue = lastNetworkedValue + 1
+            if (lastNetworkedValue < 10) then
+                self:SetNWVector("activePathS"..(lastNetworkedValue), segmentPos)
+            end
+        end
+        --if (SAPBOTDEBUG) then print("S.A.P Bot "..self.Sap_Name.." Active Path Segment traced "..tostring(segmentPos).." Steps At: "..self.ActivePathSteps) end
+
+        self.ActivePathSteps = self.ActivePathSteps - 1
+    end
+    --print(#self.Fun_ActivePath)
+    if (SERVER) then
+        self:SetNWInt("activePathNetLength", lastNetworkedValue)
+    end
+end
+
+function ENT:ClampTotalVectorRange(vecIn, rangeMax) --used in active path calc, lazy fix, square style
+    local hostValue = 0
+    if (vecIn.x > vecIn.y) then --what one is bigger is used as the max bounds of the range of the vector
+        hostValue = vecIn.x
+    else
+        hostValue = vecIn.y
+    end
+    local hostValue = math.Clamp(rangeMax / hostValue,0,1)
+    return(Vector(vecIn.x * hostValue,vecIn.y * hostValue,vecIn.z * hostValue))
+end
+
+function ENT:TraceActivePath(origin, goal)
+    local tracedata = {}
+    tracedata["start"] = self:GetActivePathBasePos() + origin
+    tracedata["endpos"] = goal
+    tracedata["filter"] = self
+    return(util.TraceLine(tracedata))
+end
+
+function ENT:GetActivePathBasePos() --returns the middle position to offset of the bounds of the model
+    local posModelOffsetMin, posModelOffsetMax = self:GetModelBounds()
+    return(Vector(0,0,posModelOffsetMax.z * 0.5))
 end
 
 function ENT:ThinkingProcess() --when they are thinking
@@ -1457,11 +1861,15 @@ function ENT:ThinkingProcess() --when they are thinking
     while (CurTime() < thinking_endtime) do
         if (CurTime() > thinking_tick) then --every blabla seconds do a thing, optimization
             thinking_tick = CurTime() + 0.5
+            self:ActionProcess() --do sap action stuff
             if (self:ScanEntities()) then --thinking or running away from enemy
                 if (self.BadNearEnt != nil) then
                     self:EnemyReaction()
                 end
             end
+        end
+        if (self.Fun_ActivePathingMode) then
+            self:FunActivePathing()
         end
         coroutine.yield()
     end
@@ -1610,11 +2018,18 @@ function ENT:Think()
             self:SetNW2Float("Sap_Health",self:Health())
             self:SetNW2Float("Sap_HealthMax",self:GetMaxHealth())
 
-            local tr = self:GetEyeTrace()
-            local ent = tr.Entity
-            if IsValid(ent) then
-                if (self:GetPos():Distance(ent:GetPos()) < 200) then
-                    ent:Fire("Open")
+            if (self.ActionOverride == nil) then
+                local tr = self:GetEyeTrace()
+                local ent = tr.Entity
+                if IsValid(ent) then
+                    if (self:GetPos():Distance(ent:GetPos()) < 128) then
+                        local entclass = ent:GetClass()
+                        if ((entclass == "prop_door_rotating" or entclass == "func_door" or entclass == "func_door_rotating") && !self.Fun_IgnoreDoor) then
+                            self.ActionOverride = "door"
+                            self.ActionOverrideEnt = ent
+                            self.ActionOverrideAngle = tr.HitNormal
+                        end
+                    end
                 end
             end
         end
@@ -1692,6 +2107,31 @@ function ENT:Think()
             local cos = math.cos(pitch)
             normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
             render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
+        end)
+        hook.Add('PreDrawEffects','sapDebugExtra3D'..self:EntIndex(),function()
+            if !IsValid(self) then hook.Remove('PreDrawEffects','sapDebugExtra3D'..self:EntIndex()) return end
+                local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
+                local pos = self:GetPos() + Vector(0,0,0)
+                local normal = EyePos() - pos
+
+                    local phys = self:GetPhysicsObject();
+                    local physaabbOne physaabbTwo = self:GetPhysicsObject():GetAABB()
+
+                    if(SAPBOTDEBUG) then
+                        render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, Color( 0, 255, 0 ), true)
+                        --print(table.ToString(self.Fun_ActivePath, "Fun_ActivePath", true))
+                        --print(tostring(self.Fun_ActivePath))
+                        pos = pos + self:GetActivePathBasePos();
+                        if (self:GetNWInt("activePathNetLength", -1) > -1) then
+                            for entryNum = 0, self:GetNWInt("activePathNetLength", -1) do
+                                if (entryNum == 0) then
+                                    render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(150, 255, 150),true)
+                                else
+                                    render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(150, 255, 150),true)
+                                end
+                            end
+                        end
+                    end
         end)
     end
 end

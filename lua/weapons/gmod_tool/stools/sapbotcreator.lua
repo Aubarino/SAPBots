@@ -49,7 +49,9 @@ TOOL.ClientConVar = {
     ["sappersonalityrandom"] = "0",
 
     --fun
-    ["sapaggressionmode"] = "0"
+    ["sapaggressionmode"] = "0",
+    ["sapactivepathingmode"] = "0",
+    ["sapignoredoormode"] = "0"
 }
 
 local defaultvars = {
@@ -89,7 +91,9 @@ local defaultvars = {
     ["sapbotcreator_sappersonalityrandom"] = "0",
 
     --fun
-    ["sapbotcreator_sapaggressionmode"] = "0"
+    ["sapbotcreator_sapaggressionmode"] = "0",
+    ["sapbotcreator_sapactivepathingmode"] = "0",
+    ["sapbotcreator_sapignoredoormode"] = "0"
 }
 
 function TOOL:DrawToolScreen( width, height )
@@ -176,6 +180,8 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Sap_WanderRange = self:GetClientNumber( "sapwander" )
     sapentity.NPCMenuSpawned = false
     sapentity.Fun_AggressionMode = (tobool(self:GetClientNumber("sapaggressionmode", 0)))
+    sapentity.Fun_ActivePathingMode = (tobool(self:GetClientNumber("sapactivepathingmode", 0)))
+    sapentity.Fun_IgnoreDoor = (tobool(self:GetClientNumber("sapignoredoormode", 0)))
 end
 
 function TOOL:Transmute(entityinput) --transmute any object into a sap bot or update information in a sap bot by recreating it, some of this is managed inside the sap bot code itself
@@ -408,7 +414,7 @@ function TOOL.BuildCPanel(panel)
     DiscordButton:SetPos( 65, 550 )
     DiscordButton:SetSize( 103, 27 )
     DiscordButton.DoClick = function()
-        gui.OpenURL("https://discord.gg/StKCeeX8")
+        gui.OpenURL("https://discord.gg/8UMuEdDYEs")
     end
 
     panel:Help("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ")
@@ -472,7 +478,12 @@ function TOOL.BuildCPanel(panel)
         SMSlider:SetSlideX(GetConVar("sapbotcreator_sapsmcorruption"):GetFloat())
     end
     panel:Help("- - - - - - - - - - - - - - - Fun - - - - - - - - - - - - - ")
-    panel:CheckBox("Absolute Aggression Mode","sapbotcreator_sapaggressionmode")
+    panel:CheckBox("Absolute Aggression Mode*","sapbotcreator_sapaggressionmode")
+    panel:Help("(*they will attack things in rage ignoring all personality and reason!)")
+    panel:CheckBox("Active Pathing Mode*","sapbotcreator_sapactivepathingmode")
+    panel:Help("(*path without navmesh, experimental custom pathing, breaks lots)")
+    panel:CheckBox("Ignore Doors Entirely*","sapbotcreator_sapignoredoormode")
+    panel:Help("(*path through doors, phasing through props, for when they get stuck a lot)")
 end
 
 hook.Add("PopulateToolMenu","SetupSapbotOptionsMenu", function()
