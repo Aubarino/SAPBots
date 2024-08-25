@@ -51,7 +51,9 @@ TOOL.ClientConVar = {
     --fun
     ["sapaggressionmode"] = "0",
     ["sapactivepathingmode"] = "0",
-    ["sapignoredoormode"] = "0"
+    ["sapignoredoormode"] = "0",
+    ["sapnoantistuckmode"] = "0",
+    ["sapnojumpmode"] = "0"
 }
 
 local defaultvars = {
@@ -93,54 +95,63 @@ local defaultvars = {
     --fun
     ["sapbotcreator_sapaggressionmode"] = "0",
     ["sapbotcreator_sapactivepathingmode"] = "0",
-    ["sapbotcreator_sapignoredoormode"] = "0"
+    ["sapbotcreator_sapignoredoormode"] = "0",
+    ["sapbotcreator_sapnoantistuckmode"] = "0",
+    ["sapbotcreator_sapnojumpmode"] = "0"
 }
 
 function TOOL:DrawToolScreen( width, height )
     --cool background
+    local sapColor = Color(0,255,0)
+    if (GetConVar("sapbot_color_r") != nil) then
+        sapColor = Color(GetConVar("sapbot_color_r"):GetInt(),GetConVar("sapbot_color_g"):GetInt(),GetConVar("sapbot_color_b"):GetInt())
+    end
+
 	surface.SetDrawColor( Color( 0, 0, 0 ) )
 	surface.DrawRect( 0, 0, width, height )
     local i = 1
+    local outputValL = 0
     for i=1,24,1
     do
-        surface.SetDrawColor( Color( 0, (math.sin(CurTime() * 2) + 2) * i, 0 ) )
+        outputValL = (math.sin(CurTime() * 2) + 2) * i
+        surface.SetDrawColor( Color( outputValL * math.Round(sapColor.r * 0.004921568627451), outputValL * math.Round(sapColor.g * 0.003921568627451), outputValL * math.Round(sapColor.b * 0.004921568627451) ) )
         surface.DrawRect( 4 * i, 4 * i, width - (8 * i), height - (8 * i) )
     end
 
     --"page" number
-    draw.SimpleText(self:GetOwner():GetNW2Int("saptool_screen",1), "DermaLarge", 8, 8, Color( 0, 255, 0 ), TEXT_ALIGN_TOP, TEXT_ALIGN_TOP )
+    draw.SimpleText(self:GetOwner():GetNW2Int("saptool_screen",1), "DermaLarge", 8, 8, sapColor, TEXT_ALIGN_TOP, TEXT_ALIGN_TOP )
     --cool text art effect thing via math cause math is god :)
     local CoolTx = CoolSapTextArt() --moved to util
     --page 1 readout
-	draw.SimpleText(CoolTx.." S.A.P Bot "..CoolTx, "DermaLarge", width / 2, 32, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+	draw.SimpleText(CoolTx.." S.A.P Bot "..CoolTx, "DermaLarge", width / 2, 32, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     if (tobool(self:GetClientNumber("sapnamerandom", 0))) then
-        draw.SimpleText("Randomised Name", "DermaLarge", width / 2, 72, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Randomised Name", "DermaLarge", width / 2, 72, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     else
-        draw.SimpleText("Name: "..self:GetClientInfo("sapname"), "DermaLarge", width / 2, 72, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Name: "..self:GetClientInfo("sapname"), "DermaLarge", width / 2, 72, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     end
     local ModelTex = ""
     if (tobool(self:GetClientNumber("sapmodelrandom", 0))) then ModelTex = "Randomised Model"
     else ModelTex = self:GetClientInfo("sapmodel")
     end
-    draw.SimpleText(ModelTex, "Trebuchet24", width / 2, 100, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+    draw.SimpleText(ModelTex, "Trebuchet24", width / 2, 100, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 
     if (tobool(self:GetClientNumber("sappersonalityrandom", 0))) then
-        draw.SimpleText("Randomised Personality", "Trebuchet24", width / 2, 124, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Randomised Personality", "Trebuchet24", width / 2, 124, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     end
 
     --control information
     if (self:GetOwner():GetNW2Int("saptool_screen",1) == 1) then
         local buttonprevHeight = 140
-        draw.SimpleText("Left Click :", "Trebuchet24", width / 2, buttonprevHeight, Color( 0, 255, 0 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
-        draw.SimpleText("Create "..self:GetClientInfo("sapname").."", "Trebuchet24", width / 2, buttonprevHeight + 31, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-        draw.SimpleText("Right Click :", "Trebuchet24", width / 2, buttonprevHeight+39, Color( 0, 255, 0 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
-        draw.SimpleText("Transmute anything", "Trebuchet24", width / 2, buttonprevHeight + 72, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Left Click :", "Trebuchet24", width / 2, buttonprevHeight, sapColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
+        draw.SimpleText("Create "..self:GetClientInfo("sapname").."", "Trebuchet24", width / 2, buttonprevHeight + 31, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Right Click :", "Trebuchet24", width / 2, buttonprevHeight+39, sapColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
+        draw.SimpleText("Transmute anything", "Trebuchet24", width / 2, buttonprevHeight + 72, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     elseif (self:GetOwner():GetNW2Int("saptool_screen",1) == 2) then
         local buttonprevHeight = 140
-        draw.SimpleText("Left Click :", "Trebuchet24", width / 2, buttonprevHeight, Color( 0, 255, 0 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
-        draw.SimpleText("Transmute all in small area", "Trebuchet24", width / 2, buttonprevHeight + 31, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+        draw.SimpleText("Left Click :", "Trebuchet24", width / 2, buttonprevHeight, sapColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_RIGHT )
+        draw.SimpleText("Transmute all in small area", "Trebuchet24", width / 2, buttonprevHeight + 31, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
     end
-    draw.SimpleText("Reload : Next Mode","Trebuchet24", width / 2, 240, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+    draw.SimpleText("Reload : Next Mode","Trebuchet24", width / 2, 240, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 end
 
 function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of a sap bot provided in the sap entity var here
@@ -182,6 +193,8 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Fun_AggressionMode = (tobool(self:GetClientNumber("sapaggressionmode", 0)))
     sapentity.Fun_ActivePathingMode = (tobool(self:GetClientNumber("sapactivepathingmode", 0)))
     sapentity.Fun_IgnoreDoor = (tobool(self:GetClientNumber("sapignoredoormode", 0)))
+    sapentity.Fun_NoAntistuck = (tobool(self:GetClientNumber("sapnoantistuckmode", 0)))
+    sapentity.Fun_NoJump = (tobool(self:GetClientNumber("sapnojumpmode", 0)))
 end
 
 function TOOL:Transmute(entityinput) --transmute any object into a sap bot or update information in a sap bot by recreating it, some of this is managed inside the sap bot code itself
@@ -484,12 +497,22 @@ function TOOL.BuildCPanel(panel)
     panel:Help("(*path without navmesh, experimental custom pathing, breaks lots)")
     panel:CheckBox("Ignore Doors Entirely*","sapbotcreator_sapignoredoormode")
     panel:Help("(*path through doors, phasing through props, for when they get stuck a lot)")
+    panel:CheckBox("No Anti-stuck*","sapbotcreator_sapnoantistuckmode")
+    panel:Help("(*normally they will detect when stuck, and teleport around,)")
+    panel:Help("(but in small spaces, this can be an issue, so this turns it off.)")
+    panel:CheckBox("No Jump Mode*","sapbotcreator_sapnojumpmode")
+    panel:Help("(*makes them no longer jump around in certain conditions)")
 end
 
 hook.Add("PopulateToolMenu","SetupSapbotOptionsMenu", function()
     spawnmenu.AddToolMenuOption( "S.A.P Bots", "S.A.P Bots | Adaptive Friends", "sap_optio", "-= Settings =-", "", "", function(panel) 
-        --sapbot_debugmode = false
         CreateConVar("sapbot_debugmode", 0)
+        CreateConVar("sapbot_hideicons", 0)
+        CreateConVar("sapbot_hidetext", 0)
+        CreateConVar("sapbot_hidechat", 0)
+        CreateConVar("sapbot_color_r", 0)
+        CreateConVar("sapbot_color_g", 255)
+        CreateConVar("sapbot_color_b", 0)
         panel:ControlHelp("")
         panel:ControlHelp("If you're looking at this trying to find the S.A.P Bot Creator Toolgun Tool")
         panel:ControlHelp("Then you're in the wrong place, look in the normal toolgun tools area 'n scroll down maybe.")
@@ -498,5 +521,129 @@ hook.Add("PopulateToolMenu","SetupSapbotOptionsMenu", function()
         panel:ControlHelp("")
         panel:CheckBox("Debug Mode","sapbot_debugmode")
         panel:ControlHelp("Is exchanged per s.a.p bot initialize yet is global. A mode that enables debug prints, s.a.p bot debug rendering, s.a.p bot ID Information and more, intended for developers")
+        panel:CheckBox("Hide Icons","sapbot_hideicons")
+        panel:ControlHelp("Hides icons of s.a.p bot mood / status")
+        panel:CheckBox("Hide Text","sapbot_hidetext")
+        panel:ControlHelp("Hides text of s.a.p bots above their heads and their health")
+        panel:CheckBox("Hide Chat Messages","sapbot_hidechat")
+        panel:ControlHelp("Hides the chat messages of s.a.p bots, they are still sent internally, meaning mentions of their names still get reactions")
+
+        -- local Frame = vgui.Create("DFrame")
+        -- Frame:SetParent(panel)
+        -- Frame:SetSize(267,186) 	-- Good size for example
+        -- Frame:Center()
+        --Frame:MakePopup()
+
+        -- local Mixer = vgui.Create("DColorMixer", Frame)
+        -- Mixer:Dock(FILL)					-- Make Mixer fill place of Frame
+        -- Mixer:SetPalette(true)  			-- Show/hide the palette 				DEF:true
+        -- Mixer:SetAlphaBar(true) 			-- Show/hide the alpha bar 				DEF:true
+        -- Mixer:SetWangs(true) 				-- Show/hide the R G B A indicators 	DEF:true
+        -- Mixer:SetColor(Color(30,100,160)) 	-- Set the default color
+
+        -- function Mixer:ValueChanged(col)
+        --     print(tostring(col))
+        -- end
+
+        panel:Help("S.A.P Bot main theme color")
+        panel:ControlHelp("Controls the main color used in rendering all of the text and such")
+        -- Background panel
+        BGPanel = vgui.Create("DPanel")
+        BGPanel:SetParent(panel)
+        BGPanel:SetSize(200, 200)
+        panel:AddItem(BGPanel)
+        --BGPanel:SetSize(200, 200)
+        --BGPanel:SetPos(155, 400)
+        --BGPanel:Center()
+
+        -- Color label
+        local color_label_backer = Label("Color( 255, 255, 255 )", BGPanel)
+        color_label_backer:SetPos(41, 161)
+        color_label_backer:SetSize(150, 20)
+        color_label_backer:SetHighlight(true)
+        color_label_backer:SetColor(Color(0, 127, 0))
+        local color_label_backer2 = Label("Color( 255, 255, 255 )", BGPanel)
+        color_label_backer2:SetPos(39, 159)
+        color_label_backer2:SetSize(150, 20)
+        color_label_backer2:SetHighlight(true)
+        color_label_backer2:SetColor(Color(0, 127, 0))
+        local color_label_backer3 = Label("Color( 255, 255, 255 )", BGPanel)
+        color_label_backer3:SetPos(39, 159)
+        color_label_backer3:SetSize(150, 20)
+        color_label_backer3:SetHighlight(true)
+        color_label_backer3:SetColor(Color(0, 127, 0))
+        local color_label_backer4 = Label("Color( 255, 255, 255 )", BGPanel)
+        color_label_backer4:SetPos(39, 159)
+        color_label_backer4:SetSize(150, 20)
+        color_label_backer4:SetHighlight(true)
+        color_label_backer4:SetColor(Color(0, 127, 0))
+        local color_label = Label("Color( 255, 255, 255 )", BGPanel)
+        color_label:SetPos(40, 160)
+        color_label:SetSize(150, 20)
+        color_label:SetHighlight(true)
+        color_label:SetColor(Color(0, 255, 0))
+
+        -- Color picker
+        local color_picker = vgui.Create("DRGBPicker", BGPanel)
+        color_picker:SetPos(5, 5)
+        color_picker:SetSize(30, 190)
+
+        -- Color cube
+        local color_cube = vgui.Create("DColorCube", BGPanel)
+        color_cube:SetPos(40, 5)
+        color_cube:SetSize(155, 155)
+
+        -- When the picked color is changed...
+        function color_picker:OnChange(col)
+            -- Get the hue of the RGB picker and the saturation and vibrance of the color cube
+            local h = ColorToHSV(col)
+            local _, s, v = ColorToHSV(color_cube:GetRGB())
+            
+            -- Mix them together and update the color cube
+            col = HSVToColor(h, s, v)
+            color_cube:SetColor(col)
+            
+            -- Lastly, update the background color and label
+            UpdateColors(col)
+                
+        end
+
+        function color_cube:OnUserChanged(col)
+
+            -- Update background color and label
+            UpdateColors(col)
+
+        end
+
+        -- Updates display colors, label, and clipboard text
+        function UpdateColors(col)
+            local theText = ("RGB Value ( "..col.r..", "..col.g..", "..col.b.." )")
+            color_label:SetText(theText)
+            color_label_backer:SetText(theText)
+            color_label_backer2:SetText(theText)
+            color_label_backer3:SetText(theText)
+            color_label_backer4:SetText(theText)
+            color_label:SetColor(Color((col.r), (col.g), (col.b)))
+            local colBacker = Color(math.Round((255 - col.r) * 0.5), math.Round((255 - col.g) * 0.5), math.Round((255 - col.b) * 0.5))
+            color_label_backer:SetColor(colBacker)
+            color_label_backer2:SetColor(colBacker)
+            color_label_backer3:SetColor(colBacker)
+            color_label_backer4:SetColor(colBacker)
+            SetClipboardText(color_label:GetText())
+
+            GetConVar("sapbot_color_r"):SetInt(math.Round(col.r))
+            GetConVar("sapbot_color_g"):SetInt(math.Round(col.g))
+            GetConVar("sapbot_color_b"):SetInt(math.Round(col.b))
+        end
+
+        -- local color_picker = vgui.Create("DRGBPicker", panel)
+        -- color_picker:SetPos(35, 300)
+        -- color_picker:SetSize(180, 180)
+
+        -- -- When the picked color is changed...
+        -- function color_picker:OnChange(col)
+        --     -- Change the panel background color
+        --     print(tostring(col))
+        -- end
     end)
 end)

@@ -3,6 +3,10 @@ include("sapbot/SapUtil.lua")
 AddCSLuaFile("sapbot/SapUtil.lua")
 
 SAPBOTDEBUG = false --debug mode
+SAPBOTHIDEICON = false --hide icons
+SAPBOTHIDETEXT = false --hide text such as health or chat status
+SAPBOTHIDECHAT = false --hide chat messages visually
+SAPBOTCOLOR = Color(0,255,0) --used in setting colors
 _Sapbot_WeaponBlacklist = {} --weapons to not spawn with or use
 
 ENT.Base 			= "base_nextbot"
@@ -92,6 +96,8 @@ ENT.Fun_AggressionMode = false
 ENT.Fun_ActivePathingMode = false --an experiment of mine into non-navmesh pathing of nextbots!
 ENT.Fun_ActivePath = {} --the position vectors defining the path of active pathing
 ENT.Fun_IgnoreDoor = false
+ENT.Fun_NoAntistuck = false
+ENT.Fun_NoJump = false
 
 --actions
 ENT.ActionOverride = nil --things such as "door"
@@ -353,6 +359,34 @@ function ENT:GetHeadHeightVector()
     return(Vector(0,0,posModelOffsetMax.z - 16))
 end
 
+function ENT:InitSettings() --used to get convar on initialize and set the correct values in here
+    if (GetConVar("sapbot_debugmode") == nil) then --DEBUG MODE TOGGLE CODE
+        SAPBOTDEBUG = false
+    else
+        SAPBOTDEBUG = GetConVar("sapbot_debugmode"):GetBool()
+    end
+    if (GetConVar("sapbot_hideicons") == nil) then --HIDE ICONS TOGGLE CODE
+        SAPBOTHIDEICON = false
+    else
+        SAPBOTHIDEICON = GetConVar("sapbot_hideicons"):GetBool()
+    end
+    if (GetConVar("sapbot_hidetext") == nil) then --HIDE TEXT OF HEALTH AND OTHER TOGGLE CODE
+        SAPBOTHIDETEXT = false
+    else
+        SAPBOTHIDETEXT = GetConVar("sapbot_hidetext"):GetBool()
+    end
+    if (GetConVar("sapbot_hidechat") == nil) then --HIDE CHAT RENDERING TOGGLE CODE
+        SAPBOTHIDECHAT = false
+    else
+        SAPBOTHIDECHAT = GetConVar("sapbot_hidechat"):GetBool()
+    end
+    if (GetConVar("sapbot_color_r") == nil) then
+        SAPBOTCOLOR = Color(0,255,0)
+    else
+        SAPBOTCOLOR = Color(GetConVar("sapbot_color_r"):GetInt(),GetConVar("sapbot_color_g"):GetInt(),GetConVar("sapbot_color_b"):GetInt())
+    end
+end
+
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 --true first boot 'n initialization
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
@@ -361,11 +395,8 @@ function ENT:Initialize()
     self.Spawning = true
     self.UpdatePhys = CurTime() + 0.1
     --cool spawn effect
-    if (GetConVar("sapbot_debugmode") == nil) then --DEBUG MODE TOGGLE CODE
-        SAPBOTDEBUG = false
-    else
-        SAPBOTDEBUG = GetConVar("sapbot_debugmode"):GetBool()
-    end
+    
+    self:InitSettings() --get convar values
 
     if (SERVER) then
         self:SetNW2String("Sap_Name", self.Sap_Name)
@@ -381,16 +412,16 @@ function ENT:Initialize()
             if (self:GetNW2String("Sap_Name") == "") then
                 toprint = "S.A.P Bot"
                 if (table.Count(_SAPBOTS) < 3) then --first sap bot message warning thing
-                    chat:AddText(Color(0,0,0,255), "-={[ ", Color(0,255,0,255), "S.A.P Bots are best spawned via the ", Color(255,255,255,255),"S.A.P Bot Creator tool", Color(0,0,0,255), " ]}=-")
+                    chat:AddText(Color(0,0,0,255), "-={[ ", SAPBOTCOLOR, "S.A.P Bots are best spawned via the ", Color(255,255,255,255),"S.A.P Bot Creator tool", Color(0,0,0,255), " ]}=-")
                 end
             else
                 toprint = "S.A.P Bot ("..self:GetNW2String("Sap_Name")..")"
             end
-            chat:AddText(Color(150,255,150,255),toprint.." has joined the game")
+            chat:AddText(Color(math.Clamp(150 + (SAPBOTCOLOR.r * 2.428571428571429),0,255),SAPBOTCOLOR.g,math.Clamp(150 + (SAPBOTCOLOR.b * 2.428571428571429),0,255),255),toprint.." has joined the game")
         end
     end
     self:SetMaterial("models/weapons/v_slam/new light2")
-    self:SetColor(Color(0, 255, 0, 255))
+    self:SetColor(SAPBOTCOLOR)
     self:SetModel("models/player/skeleton.mdl")
 
     self.Sap_id = math.Round(math.Rand( 0, 9999999 ))
@@ -776,22 +807,24 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                     local sapname = v:GetNW2String("Sap_Name")
                     local saphealthperce = math.floor((v:GetNW2Float("Sap_Health") / v:GetNW2Float("Sap_HealthMax")) * 100)
                     local saphealthfivfiv = (saphealthperce * 2.55)
-                    local saphealthcolour = Color(255 - saphealthfivfiv,saphealthfivfiv,0)
-                    local saphealthbossvo = Color(math.Clamp(saphealthcolour.r - 100,0,255),math.Clamp(saphealthcolour.g - 100,0,255),0)
+                    local saphealthcolour = Color(SAPBOTCOLOR.r,saphealthfivfiv * SAPBOTCOLOR.g,SAPBOTCOLOR.b)
+                    local saphealthbossvo = Color(math.Clamp(saphealthcolour.r - 100,0,255),math.Clamp(saphealthcolour.g - 100,0,255),math.Clamp(saphealthcolour.b - 100,0,255))
                     
                     local posModelOffsetMin, posModelOffsetMax = v:GetCollisionBounds()
                     local renderpos = Vector(rawrenderpos.x,rawrenderpos.y,rawrenderpos.z + (posModelOffsetMax.z * 0.75))
                     renderpos = renderpos:ToScreen()
                     if (Vector(renderpos.x,renderpos.y,0):Distance(Vector(scrw / 2,scrh / 2,0)) < (35000 / DistanceTo3D)) then
-                        draw.SimpleText(sapname, "HudSelectionText", renderpos.x + 1.5, renderpos.y + 1.5, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                        draw.SimpleText(sapname, "HudSelectionText", renderpos.x, renderpos.y, Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                        if (!SAPBOTHIDETEXT) then
+                            draw.SimpleText(sapname, "HudSelectionText", renderpos.x + 1.5, renderpos.y + 1.5, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                            draw.SimpleText(sapname, "HudSelectionText", renderpos.x, renderpos.y, SAPBOTCOLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                        end
 
-                        if (!(v:GetNW2Float("Sap_HealthMax") > 500)) then
+                        if (!(v:GetNW2Float("Sap_HealthMax") > 500 or SAPBOTHIDETEXT)) then
                             draw.SimpleText(saphealthperce..[[%]], "DefaultSmall", renderpos.x + 1.5, renderpos.y + 16.5, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                             draw.SimpleText(saphealthperce..[[%]], "DefaultSmall", renderpos.x, renderpos.y + 15, saphealthcolour, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                         end
                     end
-                    if (v:GetNW2Float("Sap_HealthMax") > 500) then
+                    if (v:GetNW2Float("Sap_HealthMax") > 500 && !SAPBOTHIDETEXT) then
                         draw.RoundedBox(5, renderpos.x - 86.5, renderpos.y - 99, 175, 13, saphealthbossvo)
                         draw.RoundedBox(5, renderpos.x - 87.5, renderpos.y - 100, saphealthperce * 1.75, 12, saphealthcolour)
                         draw.SimpleText(v:GetNW2Float("Sap_Health"), "Default", renderpos.x - 1.5, renderpos.y - 96.5, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
@@ -801,13 +834,13 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                         draw.SimpleText(v:GetNW2Float("Sap_Health"), "Default", renderpos.x, renderpos.y - 95, saphealthcolour, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                     end
                     local TTSText = v:GetNW2String("TTStextform")
-                    if (TTSText != "" and TTSText != nil) then
+                    if (TTSText != "" and TTSText != nil && !SAPBOTHIDETEXT) then
                         local ttstextpos = Vector(rawrenderpos.x,rawrenderpos.y,rawrenderpos.z + (posModelOffsetMax.z * 0.98))
                         ttstextpos = ttstextpos:ToScreen()
                         local lines = SplitToMultipleLines('"'..TTSText..'"',30)
                         for li,line in pairs(lines) do
                             draw.SimpleText(line, "DebugOverlay", ttstextpos.x + 1, ttstextpos.y + 1 + ((li - 1) * 10), Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                            draw.SimpleText(line, "DebugOverlay", ttstextpos.x, ttstextpos.y + ((li - 1) * 10), Color( 0, 255, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                            draw.SimpleText(line, "DebugOverlay", ttstextpos.x, ttstextpos.y + ((li - 1) * 10), SAPBOTCOLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                         end
                     end
                 end
@@ -816,7 +849,7 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                     local renderpos = Vector(rawrenderpos.x,rawrenderpos.y,rawrenderpos.z + (posModelOffsetMax.z * 0.88))
                     renderpos = renderpos:ToScreen()
                     draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x + 2, renderpos.y + 2, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                    draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x, renderpos.y, Color( 79, 247, 84 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                    draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x, renderpos.y, Color(math.Clamp(SAPBOTCOLOR.r + 79,0,255), math.Clamp(SAPBOTCOLOR.g - 8,0,255), math.Clamp(SAPBOTCOLOR.b + 84,0,255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                 end
             end
         end
@@ -1413,7 +1446,7 @@ function ENT:LocoInterjection(pathinput) --locomotion interjections such as chec
         self.LocInterjecTime = CurTime() + 0.5
 
         --stuck management
-        if ((self.SapLastPos:Distance(self:GetPos()) < 10) && !self.Fun_ActivePathingMode) then --if pos is same as last check then i'm stuck
+        if ((self.SapLastPos:Distance(self:GetPos()) < 10) && !self.Fun_ActivePathingMode && !self.Fun_NoAntistuck) then --if pos is same as last check then i'm stuck
             self.SapLastPos = self:GetPos()
             local CheckPos = self:GetPos()
             for i=1,32,1 do
@@ -1478,7 +1511,7 @@ function ENT:JumpCheck(pathinput) --checks for jump, if can then jump
                 local jumptrace = util.TraceHull(jumptracetabl)
                 if (jumptrace.Hit) then
                     local entclass = jumptrace.Entity:GetClass()
-                    if (!(entclass == "prop_door_rotating" or entclass == "func_door" or entclass == "func_door_rotating")) then
+                    if (!(entclass == "prop_door_rotating" or entclass == "func_door" or entclass == "func_door_rotating") && !self.Fun_NoJump) then
                         self:StartActivity(HTgetAnimJump(self.CurWeaponHT))
                         self.loco:JumpAcrossGap(CurGoal + (SegmentForward * 128) + Vector(0,0,32), SegmentForward + Vector(0,0,2))
                         self.justjumped = true
@@ -2053,13 +2086,14 @@ function ENT:Think()
 
     if ( CLIENT ) then
         if (!(self.ChatSent == (self:GetNW2String("sap_lastchatlog")))) then
-            chat:AddText(Color(0,255,0,255), self:GetNW2String("Sap_Name"), Color(255,255,255,255), ": "..self:GetNW2String("sap_lastchatlog"))--sdfsf
+            if (!SAPBOTHIDECHAT) then chat:AddText(SAPBOTCOLOR, self:GetNW2String("Sap_Name"), Color(255,255,255,255), ": "..self:GetNW2String("sap_lastchatlog")) end
             table.insert(_Sapbot_Chatlog,(self:GetNW2String("Sap_Name")..": "..self:GetNW2String("sap_lastchatlog")))
             self.ChatSent = self:GetNW2String("sap_lastchatlog")
         end
 
         hook.Add('PreDrawEffects','sapThinkingEffect'..self:EntIndex(),function()
             if !IsValid(self) then hook.Remove('PreDrawEffects','sapThinkingEffect'..self:EntIndex()) return end
+            if (!SAPBOTHIDEICON) then
                 local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
                 local pos = self:GetPos() + Vector(0,0,posModelOffsetMax.z + 15)
                 local normal = EyePos() - pos
@@ -2085,28 +2119,31 @@ function ENT:Think()
                     normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
                     render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
                 end
+            end
         end)
         hook.Add('PreDrawEffects','sapEmotExpress'..self:EntIndex(),function()
             if !IsValid(self) then hook.Remove('PreDrawEffects','sapEmotExpress'..self:EntIndex()) return end
-            render.SetMaterial(Material("custom/sap/sapemot_"..self:GetNW2String("sap_emotexpress")))
+            if (!SAPBOTHIDEICON) then
+                render.SetMaterial(Material("custom/sap/sapemot_"..self:GetNW2String("sap_emotexpress")))
 
-            local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
-            local pos = self:GetPos() + Vector(0,0,posModelOffsetMax.z + 6)
-            local normal = EyePos() - pos
-            local scaling = 0
-            if (self:GetNW2Float("sap_emoexpTime", 0) > 0) then
-                scaling = 12 - ((CurTime() - self:GetNW2Float("sap_emoexpTime", 0)) * 7)
-            else
-            scaling = 12
+                local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
+                local pos = self:GetPos() + Vector(0,0,posModelOffsetMax.z + 6)
+                local normal = EyePos() - pos
+                local scaling = 0
+                if (self:GetNW2Float("sap_emoexpTime", 0) > 0) then
+                    scaling = 12 - ((CurTime() - self:GetNW2Float("sap_emoexpTime", 0)) * 7)
+                else
+                scaling = 12
+                end
+                normal:Normalize()
+                local xyNormal = Vector(normal.x, normal.y, 0)
+                xyNormal:Normalize()
+
+                local pitch = math.acos(math.Clamp(normal:Dot(xyNormal), -1, 1))
+                local cos = math.cos(pitch)
+                normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
+                render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
             end
-            normal:Normalize()
-            local xyNormal = Vector(normal.x, normal.y, 0)
-            xyNormal:Normalize()
-
-            local pitch = math.acos(math.Clamp(normal:Dot(xyNormal), -1, 1))
-            local cos = math.cos(pitch)
-            normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
-            render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
         end)
         hook.Add('PreDrawEffects','sapDebugExtra3D'..self:EntIndex(),function()
             if !IsValid(self) then hook.Remove('PreDrawEffects','sapDebugExtra3D'..self:EntIndex()) return end
@@ -2118,16 +2155,16 @@ function ENT:Think()
                     local physaabbOne physaabbTwo = self:GetPhysicsObject():GetAABB()
 
                     if(SAPBOTDEBUG) then
-                        render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, Color( 0, 255, 0 ), true)
+                        render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, SAPBOTCOLOR, true)
                         --print(table.ToString(self.Fun_ActivePath, "Fun_ActivePath", true))
                         --print(tostring(self.Fun_ActivePath))
                         pos = pos + self:GetActivePathBasePos();
                         if (self:GetNWInt("activePathNetLength", -1) > -1) then
                             for entryNum = 0, self:GetNWInt("activePathNetLength", -1) do
                                 if (entryNum == 0) then
-                                    render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(150, 255, 150),true)
+                                    render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
                                 else
-                                    render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(150, 255, 150),true)
+                                    render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
                                 end
                             end
                         end
