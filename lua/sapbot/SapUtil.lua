@@ -2128,6 +2128,11 @@ function CoolSapTextArt()
     return(CoolTx)
 end
 
+function GetCurTimeBatch() --returns a useful 'lil general number for the batch in time, changes every now 'n again, used for dataset batching for knowing what group of stuff is what while still being cheap
+    --MUST BE SERVER SIDE ONLY, CLIENTS CANNOT KNOW THE EXACT VALUE O_O''
+    return(math.floor(os.time(os.date("!*t")) * 0.04))
+end
+
 function GetBestName(entity)
     local nametouse = "ERROR"
     if (entity != NULL and entity != nil) then

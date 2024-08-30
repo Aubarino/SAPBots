@@ -1,13 +1,15 @@
 AddCSLuaFile()
 include("sapbot/SapUtil.lua")
+include("sapbot/SapSpawnmenu.lua")
+include("sapbot/SapData.lua")
 AddCSLuaFile("sapbot/SapUtil.lua")
+AddCSLuaFile("sapbot/SapData.lua")
 
 SAPBOTDEBUG = false --debug mode
 SAPBOTHIDEICON = false --hide icons
 SAPBOTHIDETEXT = false --hide text such as health or chat status
 SAPBOTHIDECHAT = false --hide chat messages visually
 SAPBOTCOLOR = Color(0,255,0) --used in setting colors
-_Sapbot_WeaponBlacklist = {} --weapons to not spawn with or use
 
 ENT.Base 			= "base_nextbot"
 ENT.Spawnable		= true
@@ -113,6 +115,16 @@ ENT.ActivePathStepSize = 128 --defines how large in world space a active path st
 ENT.ActivePathFirstPos = Vector(0,0,0)
 ENT.ActivePathLookAngle = 0 --yaw
 
+--building relating stuff
+ENT.CanSpawnProps = false
+ENT.CanSpawnLargeProps = false
+ENT.CanBuildWithProps = false
+ENT.BuildLearnFromObservation = false
+ENT.BuildFormComprehension = false
+
+ENT.HoldingProp = false --if holding a prop with its fake physgun
+ENT.Building = false --if trying to build with props
+
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
     if type(exists) == "function" then
@@ -127,6 +139,11 @@ ENT.OpinionOnEnts = {}
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Player Type Function Emulation, for things like Weapons to avoid conflictions
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+function ENT:LookAt(entTarg)
+    self:PointAtEntity(entTarg)
+    self:SetAngles(Angle(0,self:GetAngles().y,0))
+end
 
 function ENT:GetShootPos() --the general direction ya shooting in in worldspace via a position... ikr, weird
     return(self:GetPos() + self:GetHeadHeightVector() + self:GetForward())
@@ -405,6 +422,8 @@ function ENT:Initialize()
             BuildDialogTreeSet("main",_SapbotDG_ToxicToEntity,_SapbotDG_LoveEntity,_SapbotDG_LikeEntity,_SapbotDG_DislikeEntity,_SapbotDG_HateEntity,_SapbotDG_ConversationNormal,_SapbotDG_IdleNormal)
             _SapbotDG_DialogSetMainLoaded = true
         end
+
+        confirmData()
     end
     if (CLIENT) then
         if (!self.SapSpawnOverride) then
@@ -736,10 +755,11 @@ function ENT:ScanEntities() --generally scans entity in a radius and does opinio
     local mostbad_ent
     local mostgood = 0
     local mostgood_ent
-	for k,v in ipairs( _ents ) do --scans all entities in a radious, checks their reputation / my opinion, then outputs some data
+	for k,v in ipairs(_ents) do --scans all entities in a radious, checks their reputation / my opinion, then outputs some data
 		if (v != self) then
 
             local FoundEntName = GetBestName(v)
+            self:PropDetected(v) --detected a prop
 
             if (self.OpinionOnEnts[FoundEntName] == nil or FoundEntName == " " or FoundEntName == "" or FoundEntName == ",") then
                 if (FoundEntName != nil and FoundEntName != " " and FoundEntName != "") then
@@ -1906,6 +1926,17 @@ function ENT:ThinkingProcess() --when they are thinking
         end
         coroutine.yield()
     end
+
+    --TEMP
+    if (math.random(1,5) == 1) then
+        local batchKey = ""
+        for k,v in RandomPairs(_Sapbot_PropStructureDataset) do
+            batchKey = k
+            break
+        end
+        self:GenerateDatasetPropsAt(false,batchKey)
+    end
+    
     self.ThinkingProc = false
     self:SetNW2Bool("sap_thinkcarover", self.ThinkingProc)
 end
@@ -2173,8 +2204,8 @@ function ENT:Think()
     end
 end
 
-list.Set( "NPC", "S.A.P Bot", {
-	Name = "S.A.P Bot",
-	Class = "sap_bot",
-	Category = "S.A.P Bots | Adaptive Friends"
-})
+-- list.Set( "NPC", "S.A.P Bot", {
+-- 	Name = "S.A.P Bot",
+-- 	Class = "sap_bot",
+-- 	Category = "S.A.P Bots | Adaptive Friends"
+-- })

@@ -41,9 +41,15 @@ TOOL.ClientConVar = {
 	["sapsmcloseminded"] = "0.5",
 
     ["sapwander"] = "256",
-
+    --weapons
     ["sapweapons"] = "0",
     ["sapweaponsadmin"] = "0",
+    --building
+    ["sapspawnprops"] = "0",
+    ["sapspawnlargeprops"] = "0",
+    ["sapbuildprops"] = "0",
+    ["sapbuild_observation"] = "0",
+    ["sapbuild_comprehension"] = "0",
 
     ["sapmodelrandom"] = "0",
     ["sappersonalityrandom"] = "0",
@@ -85,9 +91,15 @@ local defaultvars = {
 	["sapbotcreator_sapsmcloseminded"] = "0.5",
 
     ["sapbotcreator_sapwander"] = "256",
-
+    --weapons
     ["sapbotcreator_sapweapons"] = "0",
     ["sapbotcreator_sapweaponsadmin"] = "0",
+    --building
+    ["sapbotcreator_sapspawnprops"] = "0",
+    ["sapbotcreator_sapspawnlargeprops"] = "0",
+    ["sapbotcreator_sapbuildprops"] = "0",
+    ["sapbotcreator_sapbuild_observation"] = "0",
+    ["sapbotcreator_sapbuild_comprehension"] = "0",
 
     ["sapbotcreator_sapmodelrandom"] = "0",
     ["sapbotcreator_sappersonalityrandom"] = "0",
@@ -255,6 +267,11 @@ function TOOL:Transmute(entityinput) --transmute any object into a sap bot or up
 
             sapbot.EquipWeapons = (tobool(self:GetClientNumber("sapweapons", 0)))
             sapbot.AdminWeapons = (tobool(self:GetClientNumber("sapweaponsadmin", 0)))
+            sapbot.CanSpawnProps = (tobool(self:GetClientNumber("sapspawnprops", 0)))
+            sapbot.CanSpawnLargeProps = (tobool(self:GetClientNumber("sapspawnlargeprops", 0)))
+            sapbot.CanBuildWithProps = (tobool(self:GetClientNumber("sapbuildprops", 0)))
+            sapbot.BuildLearnFromObservation = (tobool(self:GetClientNumber("sapbuild_observation", 0)))
+            sapbot.BuildFormComprehension = (tobool(self:GetClientNumber("sapbuild_comprehension", 0)))
 
             self:DefinePersonality(sapbot,tobool(self:GetClientNumber("sappersonalityrandom", 0)))
 
@@ -337,6 +354,11 @@ function TOOL:SpawnSAPbot(pos)
 
         sapbot.EquipWeapons = (tobool(self:GetClientNumber("sapweapons", 0)))
         sapbot.AdminWeapons = (tobool(self:GetClientNumber("sapweaponsadmin", 0)))
+        sapbot.CanSpawnProps = (tobool(self:GetClientNumber("sapspawnprops", 0)))
+        sapbot.CanSpawnLargeProps = (tobool(self:GetClientNumber("sapspawnlargeprops", 0)))
+        sapbot.CanBuildWithProps = (tobool(self:GetClientNumber("sapbuildprops", 0)))
+        sapbot.BuildLearnFromObservation = (tobool(self:GetClientNumber("sapbuild_observation", 0)))
+        sapbot.BuildFormComprehension = (tobool(self:GetClientNumber("sapbuild_comprehension", 0)))
 
         self:DefinePersonality(sapbot,tobool(self:GetClientNumber("sappersonalityrandom", 0)))
 
@@ -440,6 +462,14 @@ function TOOL.BuildCPanel(panel)
     panel:Help("- - - - - - - - - - - - - - Weapons - - - - - - - - - - - - ")
     panel:CheckBox("Use Weapons","sapbotcreator_sapweapons")
     panel:CheckBox("Admin Weapons","sapbotcreator_sapweaponsadmin")
+
+    panel:Help("- - - - - - - - - - - Building (EXPERIMENTAL) - - - - - - - ")
+    panel:CheckBox("Can Spawn Props","sapbotcreator_sapspawnprops")
+    panel:CheckBox("Can Spawn Props (Large)","sapbotcreator_sapspawnlargeprops")
+    panel:CheckBox("Can Build With Props","sapbotcreator_sapbuildprops")
+    panel:Help("- - - - - - - Building (VERY VERY EXPERIMENTAL) - - - - - -")
+    panel:CheckBox("Learn building from observation","sapbotcreator_sapbuild_observation")
+    panel:CheckBox("Building form / shape comprehension","sapbotcreator_sapbuild_comprehension")
 
     local GraphWidth = 100
     local GraphHeight = 300
