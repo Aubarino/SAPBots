@@ -2,7 +2,10 @@ AddCSLuaFile()
 include("sapbot/SapUtil.lua")
 include("sapbot/SapSpawnmenu.lua")
 include("sapbot/SapData.lua")
+include("sapbot/SapPhysbeam.lua")
+--include("weapons/weapon_sapphysgun/weapon_sapphysgun.lua")
 AddCSLuaFile("sapbot/SapUtil.lua")
+--AddCSLuaFile("entities/weapon_sapphysgun.lua")
 AddCSLuaFile("sapbot/SapData.lua")
 
 SAPBOTDEBUG = false --debug mode
@@ -124,6 +127,10 @@ ENT.BuildFormComprehension = false
 
 ENT.HoldingProp = false --if holding a prop with its fake physgun
 ENT.Building = false --if trying to build with props
+--ENT.HoldingPos = Vector(0,0,0)
+ENT.HoldingPropEnt = nil
+ENT.LastWeapon = "" --the weapon before it was switched
+--CurrentWeapon
 
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
@@ -339,7 +346,7 @@ end
 function ENT:SelectWeapon(className)
     self.EquipWeapons = true
     if (self.CurrentWeapon != nil) then
-    self:DeEquipWeapon()
+        self:DeEquipWeapon()
     end
     local handpoint = self:LookupAttachment('anim_attachment_RH')
     local handattach = self:LookupAttachment("hand")
@@ -348,6 +355,10 @@ function ENT:SelectWeapon(className)
     self.CurrentWeapon:DeleteOnRemove(self.CurrentWeapon)
     self.CurrentWeapon:AddEffects(EF_BONEMERGE)
     self.CurrentWeapon:SetMoveType(MOVETYPE_NONE)
+
+    if (SERVER) then 
+        self:SetNW2Entity("CurrentWeapon_",self.CurrentWeapon)
+    end
 
     local matrix = self:GetBoneMatrix(handattach)
     local pos = matrix:GetTranslation()
@@ -362,6 +373,10 @@ function ENT:SelectWeapon(className)
         self.CurWeaponHT = self.CurrentWeapon.HoldType
     else
         self.CurWeaponHT = WMtoHoldType(self.CurrentWeapon.WorldModel)
+    end
+
+    if (className == "weapon_sapphysgun") then
+        self.CurrentWeapon:SetColor(SAPBOTCOLOR)
     end
 end
 
@@ -894,6 +909,7 @@ end
 
 function ENT:DeEquipWeapon()
     if (self.CurrentWeapon != nil and IsValid(self.CurrentWeapon)) then
+        self.LastWeapon = self.CurrentWeapon:GetClass()
         self.CurrentWeapon:Remove()
         self.CurrentWeapon = nil
         self.CurWeaponHT = "normal"
@@ -911,6 +927,10 @@ function ENT:EquipWeapon(weaponnum) --equip a weapon by number from the AllSwepW
     self.CurrentWeapon:DeleteOnRemove(self.CurrentWeapon)
     self.CurrentWeapon:AddEffects(EF_BONEMERGE)
     self.CurrentWeapon:SetMoveType(MOVETYPE_NONE)
+
+    if (SERVER) then 
+        self:SetNW2Entity("CurrentWeapon_",self.CurrentWeapon)
+    end
 
     local matrix = self:GetBoneMatrix(handattach)
     local pos = matrix:GetTranslation()
@@ -1435,7 +1455,7 @@ function ENT:ActionProcess() --processes sap bot actions 'n such
                     if (walkingintodoor == 2) then --step through door and leave door
                         path:Compute(self, leavedoor)
                         self.LastTargetPos = leavedoor
-                         coroutine.wait(0.5)
+                        coroutine.wait(0.5)
                         walkingintodoor = 3
                     elseif(walkingintodoor == 3) then --stop door stuff
                         walkingintodoor = 0
@@ -1680,60 +1700,62 @@ function ENT:RunBehaviour()
     --self:TTSSpeak("i am heavy weapons dick and this is my new weapon, anyway i'm going to kill you and kill you and each my sandwich all day on your rotting corpse baby")
     self.EmotionEnabled = true
 	while ( true ) do --look of stuff that happens in this function forever
-        self.Walking = true
-        self:StartActivity(HTgetAnimIdle(self.CurWeaponHT)) --start running animation
+        if (!self.Building) then
+            self.Walking = true
+            self:StartActivity(HTgetAnimIdle(self.CurWeaponHT)) --start running animation
 
-        --
-        local options = {}
-        local path = Path( "Follow" )
-        local maxrange = 512
-        local posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
-        path:SetMinLookAheadDistance( options.lookahead or 300 )
-        --path:SetGoalTolerance( options.tolerance or 20 )
-        path:Compute(self, posgoal)
-        self.LastTargetPos = posgoal
-        --if ( !path:IsValid() ) then return "fuck" end
-        self.loco:SetDesiredSpeed( 200 )
-        self.loco:SetAcceleration(800) --walk drifting
+            --
+            local options = {}
+            local path = Path( "Follow" )
+            local maxrange = 512
+            local posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
+            path:SetMinLookAheadDistance( options.lookahead or 300 )
+            --path:SetGoalTolerance( options.tolerance or 20 )
+            path:Compute(self, posgoal)
+            self.LastTargetPos = posgoal
+            --if ( !path:IsValid() ) then return "fuck" end
+            self.loco:SetDesiredSpeed( 200 )
+            self.loco:SetAcceleration(800) --walk drifting
 
-        self.Walking = true
-        self:StartActivity( HTgetAnimRun(self.CurWeaponHT) )
-        local WalkOverride = false
-        while ((path:IsValid() and (self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and !WalkOverride) do --running around and such
-            if ( path:GetAge() > 0.75 ) then
-                if (path:IsValid()) then --must have a path
-                    if (!util.IsInWorld(path:GetAllSegments()[#path:GetAllSegments()]["pos"])) then
+            self.Walking = true
+            self:StartActivity( HTgetAnimRun(self.CurWeaponHT) )
+            local WalkOverride = false
+            while ((path:IsValid() and (self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and !WalkOverride) do --running around and such
+                if ( path:GetAge() > 0.75 ) then
+                    if (path:IsValid()) then --must have a path
+                        if (!util.IsInWorld(path:GetAllSegments()[#path:GetAllSegments()]["pos"])) then
+                            posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
+                        end
+                    end
+                    self:ActionProcess() --do sap action stuff
+                    if (path:IsValid()) then path:Compute(self, posgoal) end --running to a spot 'n such
+                    local EnemReac = self:EnemyReaction()
+                    if (EnemReac) then
                         posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
+                        self.loco:SetDesiredSpeed(200)
+                        self.loco:SetAcceleration(800)
+                        WalkOverride = true
                     end
                 end
-                self:ActionProcess() --do sap action stuff
-                if (path:IsValid()) then path:Compute(self, posgoal) end --running to a spot 'n such
-                local EnemReac = self:EnemyReaction()
-                if (EnemReac) then
-                    posgoal = (self:GetPos() + Vector( math.Rand( -1, 1 ), math.Rand( -1, 1 ), 0 ) * self.Sap_WanderRange)
-                    self.loco:SetDesiredSpeed(200)
-                    self.loco:SetAcceleration(800)
-                    WalkOverride = true
+                path:Update( self )
+                self:LocoInterjection(path)
+                if (self.Fun_ActivePathingMode) then
+                    self:FunActivePathing()
                 end
+                if (SAPBOTDEBUG) then path:Draw() end
+                coroutine.yield()
             end
-            path:Update( self )
-            self:LocoInterjection(path)
+            self.Walking = false
+            self:StartActivity( HTgetAnimIdle(self.CurWeaponHT) )
+
+            self:ThinkingProcess()
+
             if (self.Fun_ActivePathingMode) then
                 self:FunActivePathing()
             end
-            if (SAPBOTDEBUG) then path:Draw() end
-            coroutine.yield()
+
         end
-        self.Walking = false
-        self:StartActivity( HTgetAnimIdle(self.CurWeaponHT) )
-
-        self:ThinkingProcess()
-
-        if (self.Fun_ActivePathingMode) then
-            self:FunActivePathing()
-        end
-
-		coroutine.yield()
+        coroutine.yield()
 	end
 end
 
@@ -1928,13 +1950,16 @@ function ENT:ThinkingProcess() --when they are thinking
     end
 
     --TEMP
-    if (math.random(1,5) == 1) then
+    if (math.random(1,3) == 1) then
         local batchKey = ""
         for k,v in RandomPairs(_Sapbot_PropStructureDataset) do
             batchKey = k
             break
         end
-        self:GenerateDatasetPropsAt(false,batchKey)
+        self.Building = true
+        while (self.Building) do
+            self:GenerateDatasetPropsAt(false,batchKey)
+        end
     end
     
     self.ThinkingProc = false

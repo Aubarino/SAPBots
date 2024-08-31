@@ -38,26 +38,57 @@ function ENT:GenerateDatasetPropsAt(down,batch)
     if (_Sapbot_PropStructureDataset[batch] != nil) then
         if (#_Sapbot_PropStructureDataset[batch] > 1) then --must be a reasonable size
             local tempPosTable = {}
+            local originPos = self:GetPos() --the original standing pos
+            if (self.CurrentWeapon == nil) then --put the weapon in hand
+                self:SelectWeapon("weapon_sapphysgun")
+            else
+                if (self.CurrentWeapon:GetClass() != "weapon_sapphysgun") then
+                    self:SelectWeapon("weapon_sapphysgun")
+                end
+            end
+
+            self:SetNW2Entity("CurrentWeapon_",self.CurrentWeapon)
+            --self.Building = true
+
             for k,propV in ipairs(_Sapbot_PropStructureDataset[batch]) do --for each prop in dataset batch
                 if (propV != nil) then --prop cannot contain garbage data
-                    self:SpawnProp(down,propV,true)
+                    self:SpawnProp(down,propV,true,originPos,false)
+                    coroutine.wait(0.15)
+                end
+            end
+            --self.Building = false
+            if (IsValid(self)) then --just incase
+                if (self.CurrentWeapon != nil) then
+                    if (self.CurrentWeapon:GetClass() == "weapon_sapphysgun") then
+                        if (self.LastWeapon == nil || self.LastWeapon == "") then
+                            self:DeEquipWeapon()
+                        else
+                            self:SelectWeapon(self.LastWeapon) --reselect last weapon
+                        end
+                    end
                 end
             end
         end
     end
 end
 
-function ENT:SpawnProp(down)
-    self:SpawnProp(down,nil,false)
+function ENT:SpawnProp(down) --smaller more simple way to spawn props, but cannot control prop data table, will be random from what it can spawn
+    self:SpawnProp(down,nil,false,self:GetPos(),false)
 end
 
-function ENT:SpawnProp(down,inputTable,noCast)
-    if self.Building == true then return end
-    if self.HoldingProp == true then return end
+function ENT:SpawnProp(down,inputTable,noCast,originPos,canWalkTo) --spawns a prop at a location, with a prop data table of my own design, originPos is the original standing location
+    self.Building = true
+    if (self.Building) then
+        while (self.HoldingProp) do
+            coroutine.wait(0.1)
+            coroutine.yield()
+        end
+    end
+    if !self.Building then return end
+    --if !self.HoldingProp then return end
     if !(self.CanSpawnProps || self.CanSpawnLargeProps) then return end
     if self.CurrentSpawnedProps >= 64 then return end
     --if game.SinglePlayer() and !self:TestPVS( Entity(1) ) then return end
-    self.Building = true
     local origintrace
     local prop
 
@@ -69,14 +100,12 @@ function ENT:SpawnProp(down,inputTable,noCast)
         z = -100
     end
 
-    local rndspot = self:GetPos()+Vector(math.random(-500,500),math.random(-500,500),z)
+    local rndspot = originPos+Vector(math.random(-500,500),math.random(-500,500),z)
 
     --self:LookAt(rndspot,'both')
     --self:GoalFaceTowards(rndspot,true)
-
     timer.Simple(math.random(0.5,1.5),function()
-        if !IsValid(self) then self.Building = false return end
-
+        if !IsValid(self) then self.Building = false print("ERROR ISSUE THINGY") return end
         -- ADD THIS BACK -----------------
         --self:StopLooking()
         --local attach = self:GetAttachmentPoint("eyes")
@@ -86,31 +115,122 @@ function ENT:SpawnProp(down,inputTable,noCast)
         origintrace = self:GetEyeTrace() -- lacks up and down angle though
         --local mins = prop:OBBMins()
         local posEnd = (origintrace.HitPos - origintrace.HitNormal) --where it will spawn
-        if (noCast) then posEnd = self:GetPos() end
+        local angleEnd = self:GetAngles()+Angle(0,90,0)
+        local angleMulti = 0
+        local posMulti = 0
+        if (noCast) then posEnd = originPos end
         self:EmitSound('ui/buttonclickrelease.wav',65)
 
         prop = ents.Create('prop_physics')
         if (inputTable == nil) then
             prop:SetModel(_Sapbot_PropsList[math.random(#_Sapbot_PropsList)])
             local mins = prop:OBBMins()
-            prop:SetPos(posEnd)
-            prop:SetAngles(self:GetAngles()+Angle(0,90,0))
+
         else
             prop:SetModel(inputTable.model)
             local mins = prop:OBBMins()
-            prop:SetPos(posEnd + inputTable.pos)
-            prop:SetAngles(inputTable.angle)
+            posEnd = posEnd + inputTable.pos --update the end pos of where the prop must go
+            angleEnd = inputTable.angle
+
             if (inputTable.mat != nil && inputTable.mat != "" && inputTable.mat != " ") then
                 prop:SetMaterial(inputTable.mat)
             end
             prop:SetColor(inputTable.color)
         end
+        local partialPos = self:GetPos() + ((posEnd - self:GetPos()) * 0.65) + Vector(0,0,32) --partial towards end location, relative to self
+
+        if (canWalkTo) then
+            local options = {}
+            local path = Path( "Follow" )
+            path:SetMinLookAheadDistance( options.lookahead or 300 )
+            path:SetGoalTolerance( options.tolerance or 20 )
+            self.Walking = true
+            self.loco:SetDesiredSpeed( 200 )
+            self.loco:SetAcceleration(800)
+            self:GoalFaceTowards(posEnd,false)
+            path:Compute(self, posEnd)
+            self.LastTargetPos = posEnd
+            path:Update(self)
+            self:LocoInterjection(path)
+            if (self.Fun_ActivePathingMode) then
+                self:FunActivePathing()
+            end
+            if (SAPBOTDEBUG) then path:Draw() end
+        else
+            self.Walking = false
+        end
+
         prop.IsSapProp = true
         prop:SetOwner(self)
         prop:SetSpawnEffect(true)
+        prop:SetPos(partialPos)
         prop:Spawn()
+        self.HoldingPropEnt = prop
+
+        self:SetNW2Vector("HoldingPropEnt_",self.HoldingPropEnt:GetPos())
+
+        prop:GetPhysicsObject():EnableMotion(false) --freeze
         self:LookAt(prop)
-        prop:GetPhysicsObject():EnableMotion(false)
+        local moveToSpawn = true --defines if when spawned the prop must be moved to location, or spawns there.
+
+        local min,max = prop:GetModelBounds() --stuff relating to if the prop is large or not!
+
+        if max.x > 64 && max.y > 64 || max.z > 64 then
+            if self.CanSpawnLargeProps then
+                prop:GetPhysicsObject():EnableMotion(false)
+                moveToSpawn = false
+                --DebugText('Spawnmenu: Large Prop Froze '..tostring(prop)..'  Bounds of prop = '..max.x..' '..max.y..' '..max.z)
+            else
+                prop:Remove()
+                --DebugText('Spawnmenu: Prop was large, Removed.')
+                self.Building = false
+                moveToSpawn = false
+            end
+        end
+
+
+        if (inputTable.model == "models/props_c17/oildrum001_explosive.mdl") then moveToSpawn = false end
+
+        if (moveToSpawn) then
+            timer.Create(self.Sap_Name.."BuildingTimer", 0, 0, function() --move towards location, first rotate and then move it
+                self.Building = true
+                self.HoldingProp = true
+
+                self:SetNW2Bool("HoldingProp_",self.HoldingProp)
+
+                if !((angleMulti < 0.97 || posMulti < 0.97) && IsValid(self)) then
+                    prop:SetPos(posEnd)
+                    prop:SetAngles(angleEnd)
+                    print(self.Sap_Name.." Placed Prop "..inputTable.model.." At "..tostring(posEnd))
+                    self.HoldingProp = false
+                    self.Building = false
+                    self:SetNW2Bool("HoldingProp_",self.HoldingProp)
+
+                    timer.Stop(self.Sap_Name.."BuildingTimer")
+                    timer.Remove(self.Sap_Name.."BuildingTimer")
+                end
+                prop:SetPos(LerpVector(posMulti, partialPos, posEnd))
+                prop:SetAngles(LerpAngle(angleMulti, self:GetAngles() + Angle(0,90,0), angleEnd))
+                self:SetNW2Vector("HoldingPropEnt_",self.HoldingPropEnt:GetPos())
+                
+                if (angleMulti < 0.97) then
+                    angleMulti = angleMulti + 0.07
+                else
+                    posMulti = posMulti + 0.05
+                end
+            end)
+        else
+            self.HoldingProp = false
+            prop:SetPos(posEnd)
+            prop:SetAngles(angleEnd)
+        end
+        
+        --timer.Start(self.Sap_Name.."BuildingTimer")
+        --timer.Remove(self.Sap_Name.."BuildingTimer")
+
+        -- ended, now go to the end position fully
+        --prop:SetPos(posEnd)
+        --prop:SetAngles(angleEnd)
 
         -- self.achievement_Creator = self.achievement_Creator + 1
         -- if self.achievement_Creator == self.achievement_CreatorMax then
@@ -127,21 +247,6 @@ function ENT:SpawnProp(down,inputTable,noCast)
             --net.WriteColor(Color(255,255,255),false)
             --net.Broadcast()
             --MsgAll('S.A.P: ',self:GetNW2String('Sap_Name','S.A.P Bot')..' spawned model ('..prop:GetModel()..')')
-        end
-
-        local min,max = prop:GetModelBounds()
-        if self.CanSpawnLargeProps then
-            if max.x > 70 and max.y > 70 then
-                prop:GetPhysicsObject():EnableMotion(false)
-                --DebugText('Spawnmenu: Large Prop Froze '..tostring(prop)..'  Bounds of prop = '..max.x..' '..max.y..' '..max.z)
-            end
-        else
-            if max.x > 70 and max.y > 70 or max.z > 100 then
-                prop:Remove()
-                --DebugText('Spawnmenu: Prop was large, Removed.')
-                self.Building = false
-                return
-            end
         end
 
         -- unfroze?
@@ -184,15 +289,10 @@ function ENT:SpawnProp(down,inputTable,noCast)
         --         SapFileWrite("sapbotdata/sapstats.json","[]")
         --     end
         -- end
-
-        
         self.Building = false
     end)
 
-
-
-
-    while self.Building == true do
+    while self.Building do
         coroutine.yield()
     end
     if !self.Building then

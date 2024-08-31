@@ -8,7 +8,7 @@ function verifyJsonFile(nameString) --create and/or get data from data json
     if !(file.Exists("sapbot/"..nameString,'DATA')) then --if it does not exist, replace with default contents
         file.Write("sapbot/"..nameString,file.Read('data/sapbot/'..nameString,'GAME'))
     end
-    print("Loaded ()"..nameString..") from file")
+    print("Loaded ("..nameString..") from file")
     return (util.JSONToTable(file.Read("sapbot/"..nameString))) --return any resulting value in file
 end
 
@@ -22,10 +22,10 @@ end
 
 function confirmData()
     if (SERVER) then
-        if (!IsValid(_Sapbot_PropsList)) then --props list table, loads from json
+        if ((_Sapbot_PropsList) == nil) then --props list table, loads from json
             _Sapbot_PropsList = verifyJsonFile('prop.json')
         end
-        if (!IsValid(_Sapbot_PropStructureDataset)) then --dataset of prop positions, models, colors, angles, creation id's, and batches (lossy value defining if they are grouped together or not) and their weld connections???
+        if ((_Sapbot_PropStructureDataset) == nil) then --dataset of prop positions, models, colors, angles, creation id's, and batches (lossy value defining if they are grouped together or not) and their weld connections???
             local testTable = { --test table, for manual code testing
                 ["batch0"] = {
                     {
