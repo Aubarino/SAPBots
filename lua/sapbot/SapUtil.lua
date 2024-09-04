@@ -3,6 +3,54 @@
 -- -- -- -- -- -- -- -- -- --
 
 AddCSLuaFile()
+include("sapbot/SapNetwork.lua")
+AddCSLuaFile("sapbot/SapNetwork.lua")
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- --
+-- Actions Override stuff
+-- -- -- -- -- -- -- -- -- -- -- -- -- --
+function SapActionRegister(actionname,functionBoot,functionAction,info,default)
+    SapActionRegister(SapActionRegister,functionBoot,functionAction,info,default,nil)
+end
+function SapActionRegister(actionname,functionBoot,functionAction,info,default,wsid) --adds a new boot action function and action function to the tables for sap bots
+    if (SapActionOverride_Boots == nil) then
+        SapActionOverride_Boots = {}
+        SapActionOverride_Scripts = {}
+        SapActionOverride_WSID = {}
+        SapActionOverride_Info = {}
+        SapActionOverride_Default = {}
+        CurrentAddons = engine.GetAddons() --table of all addons
+        CurrentAddonsWsid = {} --table of all addons by its workshop id, can be used as a lookup
+        for k,a in pairs(CurrentAddons) do
+            CurrentAddonsWsid[a.wsid] = a
+        end
+    end
+    local bootSave = functionBoot
+    local actionSave = functionAction
+    SapActionOverride_Boots[actionname] = bootSave
+    SapActionOverride_Scripts[actionname] = actionSave
+    SapActionOverride_WSID[actionname] = wsid
+    SapActionOverride_Info[actionname] = info
+    SapActionOverride_Default[actionname] = default
+
+    --SapActionOverride_Scripts[actionname]()
+    print("S.A.P Bot override action ("..actionname..") registered")
+    if (SAPBOTDEBUG) then
+        print("Addon load status - "..tostring(GetAddonLoaded(SapActionOverride_WSID[actionname])))
+    end
+end
+
+--get if an addon is currently loaded
+function GetAddonLoaded(wsid)
+    if (wsid == nil) then return(true) end --defaults to true if the id is not valid
+    if (CurrentAddonsWsid[tostring(wsid)] == nil) then
+        return false
+    else
+        return(CurrentAddonsWsid[tostring(wsid)].mounted)
+    end
+    --return(CurrentAddonsWsid[tostring(wsid)] != nil)
+end
+
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- Weapon Holdtype to Animation conversion tables
 _SapbotHTcIdleCrouch = {
@@ -202,6 +250,13 @@ _SapbotHTcSwim = {
     ["magic"] = ACT_HL2MP_SWIM_MAGIC,
     ["magic"] = ACT_HL2MP_SWIM_MAGIC,
     ["revolver"] = ACT_HL2MP_SWIM_REVOLVER
+}
+--manual animation override to emulate player anim bullshit bla bla bla, i hate this workaround
+_SapbotAnimOverride = {
+    [3] = ACT_GESTURE_MELEE_ATTACK1,
+    [4] = ACT_GESTURE_MELEE_ATTACK2,
+    [5] = ACT_MELEE_ATTACK_SWING_GESTURE,
+    [2024] = ACT_HL2MP_JUMP_PISTOL
 }
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 

@@ -10,6 +10,8 @@ language.Add("tool.sapbotcreator.desc", "Builds a S.A.P Bot with your specificat
 language.Add("tool.sapbotcreator.0", "Spawn a S.A.P Bot with your specifications or More! Read the Toolgun Screen for more information")
 end
 
+_saptoolgunconvarloaded = false
+
 TOOL.Category = "S.A.P Bots | Adaptive Friends"
 TOOL.Name = "#tool.sapbotcreator"
 TOOL.ClientConVar = {
@@ -50,6 +52,10 @@ TOOL.ClientConVar = {
     ["sapbuildprops"] = "0",
     ["sapbuild_observation"] = "0",
     ["sapbuild_comprehension"] = "0",
+
+    ["sappropdataset"] = "none.png",
+    ["sapsobserveproprange"] = "256",
+    ["sapproplimit"] = "32",
 
     ["sapmodelrandom"] = "0",
     ["sappersonalityrandom"] = "0",
@@ -100,6 +106,10 @@ local defaultvars = {
     ["sapbotcreator_sapbuildprops"] = "0",
     ["sapbotcreator_sapbuild_observation"] = "0",
     ["sapbotcreator_sapbuild_comprehension"] = "0",
+
+    ["sapbotcreator_sappropdataset"] = "none.png",
+    ["sapbotcreator_sapsobserveproprange"] = "256",
+    ["sapbotcreator_sapproplimit"] = "32",
 
     ["sapbotcreator_sapmodelrandom"] = "0",
     ["sapbotcreator_sappersonalityrandom"] = "0",
@@ -207,6 +217,34 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Fun_IgnoreDoor = (tobool(self:GetClientNumber("sapignoredoormode", 0)))
     sapentity.Fun_NoAntistuck = (tobool(self:GetClientNumber("sapnoantistuckmode", 0)))
     sapentity.Fun_NoJump = (tobool(self:GetClientNumber("sapnojumpmode", 0)))
+
+    if (!_saptoolgunconvarloaded) then --just incase
+        for k, v in pairs(SapActionOverride_Scripts) do
+            if (GetAddonLoaded(SapActionOverride_WSID[k])) then
+                if (SapActionOverride_Default[k] != nil) then
+                    CreateClientConVar("sapbotcreator_sap"..k, SapActionOverride_Default[k] and "1" or "0", true, false,"",0,1)
+                end
+            end
+        end
+        if (SAPBOTDEBUG) then
+            print("Toolgun created S.A.P Bot Action Override ConVars")
+        end
+        _saptoolgunconvarloaded = true --they have been made
+    end
+
+    for k, v in pairs(SapActionOverride_Scripts) do
+        if (GetAddonLoaded(SapActionOverride_WSID[k])) then
+            if (SapActionOverride_Default[k] == nil) then
+                sapentity.ActionOverridesActive[k] = true
+            else
+                local convarAction = GetConVar("sapbotcreator_sap"..k)
+                sapentity.ActionOverridesActive[k] = (tobool(convarAction:GetInt()))
+                if (SAPBOTDEBUG) then
+                    print("Action Override "..k.." set on fresh sap bot, contents : "..tostring(tobool(convarAction:GetInt())))
+                end
+            end
+        end
+    end
 end
 
 function TOOL:Transmute(entityinput) --transmute any object into a sap bot or update information in a sap bot by recreating it, some of this is managed inside the sap bot code itself
@@ -231,9 +269,9 @@ function TOOL:Transmute(entityinput) --transmute any object into a sap bot or up
 
         local sapname = ""
         if (tobool(self:GetClientNumber("sapnamerandom", 0))) then
-        sapname = GenerateName() --generates procedural name, if it should
+            sapname = GenerateName() --generates procedural name, if it should
         else
-        sapname = self:GetClientInfo( "sapname" ) != "" and self:GetClientInfo( "sapname" ) or nil
+            sapname = self:GetClientInfo( "sapname" ) != "" and self:GetClientInfo( "sapname" ) or nil
         end
 
         if (SERVER) then
@@ -272,6 +310,10 @@ function TOOL:Transmute(entityinput) --transmute any object into a sap bot or up
             sapbot.CanBuildWithProps = (tobool(self:GetClientNumber("sapbuildprops", 0)))
             sapbot.BuildLearnFromObservation = (tobool(self:GetClientNumber("sapbuild_observation", 0)))
             sapbot.BuildFormComprehension = (tobool(self:GetClientNumber("sapbuild_comprehension", 0)))
+
+            sapbot.CurrentPropDataset = self:GetClientInfo("sappropdataset")
+            sapbot.SapPropObserveRange = self:GetClientNumber("sapsobserveproprange")
+            sapbot.SapPropLimit = self:GetClientNumber("sapproplimit")
 
             self:DefinePersonality(sapbot,tobool(self:GetClientNumber("sappersonalityrandom", 0)))
 
@@ -360,6 +402,10 @@ function TOOL:SpawnSAPbot(pos)
         sapbot.BuildLearnFromObservation = (tobool(self:GetClientNumber("sapbuild_observation", 0)))
         sapbot.BuildFormComprehension = (tobool(self:GetClientNumber("sapbuild_comprehension", 0)))
 
+        sapbot.CurrentPropDataset = self:GetClientInfo("sappropdataset")
+        sapbot.SapPropObserveRange = self:GetClientNumber("sapsobserveproprange")
+        sapbot.SapPropLimit = self:GetClientNumber("sapproplimit")
+
         self:DefinePersonality(sapbot,tobool(self:GetClientNumber("sappersonalityrandom", 0)))
 
         sapbot:Spawn()
@@ -381,6 +427,50 @@ function TOOL:LeftClick( tr ) --left click spawning sap bot option
                 self:Transmute(v)
         end
         return true
+    end
+end
+
+function GenConVarsForActions(panel) --generate checkboxes for action overrides currently valid via autorun
+    if (!_saptoolgunconvarloaded) then
+        panel:Help("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ")
+        panel:Help("- - - - - - - - - - - -Action Overrides - - - - - - - - - - ")
+        panel:Help("The S.A.P Bot expanded interaction system, for mods and objects")
+        panel:ControlHelp("Checkboxes will appear 'n disappear according to what")
+        panel:ControlHelp("addons you have, and inbuilt support for interactions.")
+        panel:ControlHelp("")
+        panel:ControlHelp("You can make your own support for mods with this system!")
+        panel:ControlHelp("Simply unpack the addon, and use a SapbotAction in autorun")
+        panel:ControlHelp("as an example template for how to make your own support addon.")
+        panel:ControlHelp("Ask on the Discord Server for more info :)")
+        for k, v in pairs(SapActionOverride_Scripts) do
+            if (GetAddonLoaded(SapActionOverride_WSID[k])) then
+                if (SapActionOverride_Default[k] != nil) then
+                    local convarName = "sapbotcreator_sap"..k
+                    local convarCreated
+                    if ConVarExists(convarName) then
+                        convarCreated = GetConVar(convarName)
+                    else
+                        convarCreated = CreateClientConVar(convarName, SapActionOverride_Default[k] and "1" or "0", true, false, "", 0, 1)
+                    end
+                
+                    if (convarCreated ~= nil and convarCreated:IsFlagSet(FCVAR_ARCHIVE)) then
+                        -- Ensure convarCreated is a Lua-created ConVar
+                        convarCreated:SetInt(SapActionOverride_Default[k] and 1 or 0) -- Use numbers, not strings
+                    else
+                        --print("Error: Failed to create or retrieve ConVar '"..convarName.."'")
+                    end
+                
+                    panel:CheckBox('Action Override : "'..k..'"', convarName)
+                    panel:ControlHelp(SapActionOverride_Info[k])
+                else
+                    --print("Sap Action Override default is nil, skipping "..k)
+                end
+            end
+        end
+        if (SAPBOTDEBUG) then
+            print("Toolgun created S.A.P Bot Action Override ConVars")
+        end
+        _saptoolgunconvarloaded = true --they have been made
     end
 end
 
@@ -455,8 +545,8 @@ function TOOL.BuildCPanel(panel)
     panel:Help("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ")
     -- -- -- --
 
-    panel:NumSlider("Intelligence", "sapbotcreator_sapintelligence", 1, 100, 1)
-    panel:NumSlider("Wandering Range", "sapbotcreator_sapwander", 32, 2048, 1)
+    panel:NumSlider("Intelligence", "sapbotcreator_sapintelligence", 1, 100, 0)
+    panel:NumSlider("Wandering Range", "sapbotcreator_sapwander", 32, 2048, 0)
 
     --weapons
     panel:Help("- - - - - - - - - - - - - - Weapons - - - - - - - - - - - - ")
@@ -465,11 +555,30 @@ function TOOL.BuildCPanel(panel)
 
     panel:Help("- - - - - - - - - - - Building (EXPERIMENTAL) - - - - - - - ")
     panel:CheckBox("Can Spawn Props","sapbotcreator_sapspawnprops")
+    panel:ControlHelp("Makes them build with props")
     panel:CheckBox("Can Spawn Props (Large)","sapbotcreator_sapspawnlargeprops")
+    panel:ControlHelp("Makes them build with large props")
     panel:CheckBox("Can Build With Props","sapbotcreator_sapbuildprops")
+    panel:ControlHelp("Makes them build with prop data from their dataset")
+    panel:NumSlider("Prop Limit", "sapbotcreator_sapproplimit", 4, 256, 0)
+    panel:ControlHelp("*Prop Limit is per S.A.P Bot")
+
+    local PropDatasetBox = panel:ComboBox("Dataset","sapbotcreator_sappropdataset")
+    local filesdataset,foldez = file.Find("materials/sapbot/datasets/*", "GAME")
+    PropDatasetBox:AddChoice("none","none.png")
+    for g,v in ipairs(filesdataset) do
+        PropDatasetBox:AddChoice(string.gsub(string.gsub(v, "_", " "), ".png", ""),v)
+    end
+    panel:ControlHelp("The props dataset to be used")
+
     panel:Help("- - - - - - - Building (VERY VERY EXPERIMENTAL) - - - - - -")
     panel:CheckBox("Learn building from observation","sapbotcreator_sapbuild_observation")
+    panel:ControlHelp("Makes them learn data from observing players build")
+    panel:ControlHelp("Dataset must be set to 'none' or it will not save.")
+    panel:NumSlider("Prop Observe Range", "sapbotcreator_sapsobserveproprange", 128, 2048, 0)
+    panel:ControlHelp("How far in units can they observe player props")
     panel:CheckBox("Building form / shape comprehension","sapbotcreator_sapbuild_comprehension")
+    panel:ControlHelp("Currently not fully implemented")
 
     local GraphWidth = 100
     local GraphHeight = 300
@@ -522,16 +631,17 @@ function TOOL.BuildCPanel(panel)
     end
     panel:Help("- - - - - - - - - - - - - - - Fun - - - - - - - - - - - - - ")
     panel:CheckBox("Absolute Aggression Mode*","sapbotcreator_sapaggressionmode")
-    panel:Help("(*they will attack things in rage ignoring all personality and reason!)")
+    panel:ControlHelp("(*they will attack things in rage ignoring all personality and reason!)")
     panel:CheckBox("Active Pathing Mode*","sapbotcreator_sapactivepathingmode")
-    panel:Help("(*path without navmesh, experimental custom pathing, breaks lots)")
+    panel:ControlHelp("(*path without navmesh, experimental custom pathing, breaks lots)")
     panel:CheckBox("Ignore Doors Entirely*","sapbotcreator_sapignoredoormode")
-    panel:Help("(*path through doors, phasing through props, for when they get stuck a lot)")
+    panel:ControlHelp("(*path through doors, phasing through props, for when they get stuck a lot)")
     panel:CheckBox("No Anti-stuck*","sapbotcreator_sapnoantistuckmode")
-    panel:Help("(*normally they will detect when stuck, and teleport around,)")
-    panel:Help("(but in small spaces, this can be an issue, so this turns it off.)")
+    panel:ControlHelp("(*normally they will detect when stuck, and teleport around,)")
+    panel:ControlHelp("(but in small spaces, this can be an issue, so this turns it off.)")
     panel:CheckBox("No Jump Mode*","sapbotcreator_sapnojumpmode")
-    panel:Help("(*makes them no longer jump around in certain conditions)")
+    panel:ControlHelp("(*makes them no longer jump around in certain conditions)")
+    GenConVarsForActions(panel) --action overrides
 end
 
 hook.Add("PopulateToolMenu","SetupSapbotOptionsMenu", function()

@@ -2,7 +2,7 @@ AddCSLuaFile()
 include("sapbot/SapUtil.lua")
 include("sapbot/SapSpawnmenu.lua")
 include("sapbot/SapData.lua")
-include("sapbot/SapPhysbeam.lua")
+
 --include("weapons/weapon_sapphysgun/weapon_sapphysgun.lua")
 AddCSLuaFile("sapbot/SapUtil.lua")
 --AddCSLuaFile("entities/weapon_sapphysgun.lua")
@@ -108,6 +108,8 @@ ENT.Fun_NoJump = false
 ENT.ActionOverride = nil --things such as "door"
 ENT.ActionOverrideEnt = nil
 ENT.ActionOverrideAngle = nil
+ENT.ActionOverrideTr = nil
+ENT.ActionOverridesActive = {}
 
 ENT.SapLastPos = Vector(0,0,0)
 ENT.LastTargetPos = Vector(0,0,0) --the last target pos, in all movement systems
@@ -130,7 +132,15 @@ ENT.Building = false --if trying to build with props
 --ENT.HoldingPos = Vector(0,0,0)
 ENT.HoldingPropEnt = nil
 ENT.LastWeapon = "" --the weapon before it was switched
---CurrentWeapon
+
+ENT.CurrentPropDataset = "none.png" --the dataset currently being used for prop structure generation
+ENT.SapPropObserveRange = 256
+ENT.SapPropLimit = 32
+
+--anim override stuff
+ENT.AnimEventEnd = 0
+ENT.LastAnimAct = 0
+ENT.CurrentAnimAct = 0
 
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
@@ -147,9 +157,22 @@ ENT.OpinionOnEnts = {}
 -- Player Type Function Emulation, for things like Weapons to avoid conflictions
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
+function ENT:Kill()
+    self:SetHealth(0)
+    self:TakeDamage(99999)
+end
+
+function ENT:KillSilent()
+    self:Kill()
+end
+
 function ENT:LookAt(entTarg)
     self:PointAtEntity(entTarg)
     self:SetAngles(Angle(0,self:GetAngles().y,0))
+end
+
+function ENT:GetTarget()
+    return(self.BadNearEnt) --best i could do for now, not the best, but this is an npc related function anyway, useless if a mod uses this lol
 end
 
 function ENT:GetShootPos() --the general direction ya shooting in in worldspace via a position... ikr, weird
@@ -157,6 +180,9 @@ function ENT:GetShootPos() --the general direction ya shooting in in worldspace 
 end
 
 function ENT:ViewPunch() --used commonly by guns 'n such for recoil lol
+end
+
+function ENT:ViewPunch(angle)
 end
 
 function ENT:SetEyeAngles() --eh
@@ -188,6 +214,14 @@ ENT.dt = "" --idfk
 
 function ENT:GetViewModel() --eh....
     return(self)
+end
+
+function ENT:IsFrozen()
+    return(false)
+end
+
+function ENT:InVehicle()
+    return(false)
 end
 
 function ENT:Alive()
@@ -237,6 +271,43 @@ end
 
 function ENT:IsPlayer()
     return(true)
+end
+
+function ENT:DoAnimationEvent(anim)
+    self:DoAnimationEvent(anim,nil,false)
+end
+
+function ENT:DoAnimationEvent(anim,time,special)
+    self.AnimEventEnd = CurTime() + (time or 0.5)
+    self.LastAnimAct = self.CurrentAnimAct
+    if (_SapbotAnimOverride[anim] == nil) then
+        self.CurrentAnimAct = anim
+    else
+        self.CurrentAnimAct = _SapbotAnimOverride[anim]
+    end
+    if (special) then
+        self:AddGestureSequence(anim, true)
+    else
+        self:AddGesture(anim, true)
+    end
+end
+
+function ENT:AnimCheck()--double checks the animation status and changes if past range
+    if (self.LastAnimAct != self.CurrentAnimAct) then
+        if (CurTime() > self.AnimEventEnd) then
+            self.CurrentAnimAct = self.LastAnimAct
+            self:AddGesture(self.CurrentAnimAct, true)
+            --self:StartActivity(self.CurrentAnimAct)
+        end
+    end
+end
+
+function ENT:GetHull()
+    local returnA, returnB = self:GetModelBounds()
+    return returnA,returnB
+end
+
+function ENT:LagCompensation(bool)
 end
 
 function ENT:GetName()
@@ -292,11 +363,19 @@ function ENT:Armor()
     return(100)
 end
 
+function ENT:GetMaxArmor()
+    return(100)
+end
+
 function ENT:Ban(minutes,kick)
 end
 
 function ENT:Crouching()
     return(false)
+end
+
+function ENT:GetCanWalk()
+    return(true)
 end
 
 function ENT:GetInfo(cVarName)
@@ -765,17 +844,22 @@ function ENT:ScanEntities() --generally scans entity in a radius and does opinio
     -- end
     -- if IsValid(nearnextbot)
 
-	local _ents = ents.FindInSphere( self:GetPos(), 1000 )
+	local _ents = ents.FindInSphere(self:GetPos(), 1000)
+    local _props = ents.FindInSphere(self:GetPos(), math.Round(self.SapPropObserveRange))
     local mostbad = 0
     local mostbad_ent
     local mostgood = 0
     local mostgood_ent
+    for k,p in ipairs(_props) do
+		if (p != self) then
+            self:PropDetected(p) --detected a prop
+        end
+    end
 	for k,v in ipairs(_ents) do --scans all entities in a radious, checks their reputation / my opinion, then outputs some data
 		if (v != self) then
 
             local FoundEntName = GetBestName(v)
-            self:PropDetected(v) --detected a prop
-
+            -- self:PropDetected(v) --detected a prop
             if (self.OpinionOnEnts[FoundEntName] == nil or FoundEntName == " " or FoundEntName == "" or FoundEntName == ",") then
                 if (FoundEntName != nil and FoundEntName != " " and FoundEntName != "") then
                     if (!v:IsWeapon() and v:IsSolid() and (v:IsNPC() or v:IsPlayer() or v:IsNextBot())) then
@@ -789,7 +873,6 @@ function ENT:ScanEntities() --generally scans entity in a radius and does opinio
                     end
                     if (SAPBOTDEBUG) then print("S.A.P Bot building opinion for "..FoundEntName) end
                 else
-
                 end
             else
                 if (self.OpinionOnEnts[FoundEntName][1] > mostgood) then
@@ -1281,7 +1364,8 @@ function ENT:EnemyReaction()
                         local attackrange = 200
                         local holdtypeforat = wep:GetHoldType()
                         if (holdtypeforat == "melee" or holdtypeforat == "melee2" or holdtypeforat == "knife" or holdtypeforat == "normal") then
-                            attackrange = 32
+                            attackrange = 16
+                            --print("is melee range")
                         end
 
                         if ((math.abs(self:GetPos():Distance(targetpos)) > attackrange) or eyetrace["HitWorld"]) then --follow code
@@ -1312,7 +1396,7 @@ function ENT:EnemyReaction()
                                     self:EquipRandomWeapon()
                                     if (SAPBOTDEBUG) then
                                         print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
-                                        print([[    "]]..err..[["]])
+                                        print('"'..err..'"')
                                         print("")
                                     end
                                 end
@@ -1330,7 +1414,7 @@ function ENT:EnemyReaction()
                                     self:EquipRandomWeapon()
                                     if (SAPBOTDEBUG) then
                                         print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
-                                        print([[    "]]..err..[["]])
+                                        print('"'..err..'"')
                                         print("")
                                     end
                                 end
@@ -1422,58 +1506,15 @@ end
 
 function ENT:ActionProcess() --processes sap bot actions 'n such
     if (self.ActionOverride != nil) then
-        --ENT.ActionOverride = nil
-        --ENT.ActionOverrideEnt = nil
         local waswalking = self.Walking
-        local oldaccel = self.loco:GetAcceleration()
-        local olddesspeed = self.loco:GetDesiredSpeed()
 
-        if (self.ActionOverride == "door" && !self.Fun_IgnoreDoor) then --sap opens door sap action thing
-            --path:GetAge()
-            self.ActionOverrideEnt:Fire("Use") --open door
-            --coroutine.wait(0.15)
-            local doormodelmin, doormodelmax = self.ActionOverrideEnt:GetModelBounds()
-            local doormodeloffset = doormodelmin + (doormodelmax * 0.5)
-            local leavedoor = self.ActionOverrideEnt:GetPos() + (self.ActionOverrideAngle * -110) - doormodeloffset
-            local prepdoor = self.ActionOverrideEnt:GetPos() + (self.ActionOverrideAngle * 110) - doormodeloffset
-            local walkingintodoor = 1
-            local options = {}
-            local path = Path( "Follow" )
-            path:SetMinLookAheadDistance( options.lookahead or 300 )
-            path:SetGoalTolerance( options.tolerance or 20 )
-            self.Walking = true
-            self.loco:SetDesiredSpeed( 200 )
-            self.loco:SetAcceleration(800)
-            while (walkingintodoor != 0) do --walking through door
-                self:GoalFaceTowards(leavedoor,false)
-                if (walkingintodoor == 1) then --step back from door
-                    path:Compute(self, prepdoor)
-                    self.LastTargetPos = prepdoor
-                    walkingintodoor = 2
-                end
-                if (!path:IsValid()) then
-                    if (walkingintodoor == 2) then --step through door and leave door
-                        path:Compute(self, leavedoor)
-                        self.LastTargetPos = leavedoor
-                        coroutine.wait(0.5)
-                        walkingintodoor = 3
-                    elseif(walkingintodoor == 3) then --stop door stuff
-                        walkingintodoor = 0
-                    end
-                end
-                path:Update(self)
-                self:LocoInterjection(path)
-                if (self.Fun_ActivePathingMode) then
-                    self:FunActivePathing()
-                end
-                if (SAPBOTDEBUG) then path:Draw() end
-                coroutine.yield()
+        --PrintTable(SapActionOverride_Scripts)
+        for k, v in pairs(self.ActionOverridesActive) do --runs each currently active action override script
+            if (GetAddonLoaded(SapActionOverride_WSID[k]) && (v != false)) then
+                SapActionOverride_Scripts[k](self)
             end
         end
 
-        self.Walking = waswalking
-        self.loco:SetDesiredSpeed(olddesspeed)
-        self.loco:SetAcceleration(oldaccel)
         self.ActionOverride = nil
         self.ActionOverrideAngle = nil
         self.ActionOverrideEnt = nil
@@ -1699,7 +1740,7 @@ function ENT:RunBehaviour()
     coroutine.wait(0.2)
     --self:TTSSpeak("i am heavy weapons dick and this is my new weapon, anyway i'm going to kill you and kill you and each my sandwich all day on your rotting corpse baby")
     self.EmotionEnabled = true
-	while ( true ) do --look of stuff that happens in this function forever
+	while (true) do --look of stuff that happens in this function forever
         if (!self.Building) then
             self.Walking = true
             self:StartActivity(HTgetAnimIdle(self.CurWeaponHT)) --start running animation
@@ -1728,6 +1769,7 @@ function ENT:RunBehaviour()
                         end
                     end
                     self:ActionProcess() --do sap action stuff
+
                     if (path:IsValid()) then path:Compute(self, posgoal) end --running to a spot 'n such
                     local EnemReac = self:EnemyReaction()
                     if (EnemReac) then
@@ -1736,9 +1778,13 @@ function ENT:RunBehaviour()
                         self.loco:SetAcceleration(800)
                         WalkOverride = true
                     end
+
+                    self:AnimCheck()
                 end
                 path:Update( self )
                 self:LocoInterjection(path)
+                self:AnimCheck()
+
                 if (self.Fun_ActivePathingMode) then
                     self:FunActivePathing()
                 end
@@ -1950,15 +1996,26 @@ function ENT:ThinkingProcess() --when they are thinking
     end
 
     --TEMP
-    if (math.random(1,3) == 1) then
-        local batchKey = ""
-        for k,v in RandomPairs(_Sapbot_PropStructureDataset) do
-            batchKey = k
-            break
-        end
-        self.Building = true
-        while (self.Building) do
-            self:GenerateDatasetPropsAt(false,batchKey)
+    if (self.CanSpawnProps || self.CanSpawnLargeProps) then
+        if (math.random(1,3) == 1) then
+            if (self.CanBuildWithProps) then
+                if (_SapbotPropDatasets[self.CurrentPropDataset] == nil) then
+                    print("S.A.P Bot prop dataset ("..self.CurrentPropDataset..") contains nothing, please double check if dataset is valid or working")
+                else
+                    local batchKey = ""
+                    for k,v in RandomPairs(_SapbotPropDatasets[self.CurrentPropDataset]) do
+                        batchKey = k
+                        break
+                    end
+                    self.Building = true
+                    while (self.Building) do
+                        self:GenerateDatasetPropsAt(false,batchKey)
+                    end
+                end
+            else
+                self.Building = true
+                self:SpawnProp(false) --spawn single random prop
+            end
         end
     end
     
@@ -2071,6 +2128,34 @@ function ENT:OnKilled(dmginfo)
 	self:BecomeRagdoll(dmginfo)
 end
 
+local physbeama = Material("sprites/physbeama")
+local physg_glow1 = Material("sprites/physg_glow1")
+local physg_glow2 = Material("sprites/physg_glow2")
+local num = 2
+local frac = 1 / (num - 1)
+local function DrawBeam(pos1, tangent, pos2, color) --related to the physgun beam rendering in Think()
+    local time = CurTime()
+    for j = 1, 4 do
+        local w = math.random() * 4
+        local t = (time + j) % 4 / 4
+        render.SetMaterial(physbeama)
+        render.StartBeam(num)
+        for i = 0, num - 1 do
+            render.AddBeam(math.QuadraticBezier(frac * i, pos1, tangent, pos2), w, t, color)
+        end
+        render.EndBeam()
+
+        local s = math.random() * 8
+        render.SetMaterial(physg_glow1)
+        render.DrawSprite(pos2, s, s, color)
+
+        s = math.random() * 8
+        render.SetMaterial(physg_glow2)
+        render.DrawSprite(pos2, s, s, color)
+    end
+end
+
+
 function ENT:Think()
     if (SERVER) then --think update server stuff, bla bla
         self:IdleDialog()
@@ -2108,16 +2193,13 @@ function ENT:Think()
             self:SetNW2Float("Sap_HealthMax",self:GetMaxHealth())
 
             if (self.ActionOverride == nil) then
-                local tr = self:GetEyeTrace()
-                local ent = tr.Entity
-                if IsValid(ent) then
-                    if (self:GetPos():Distance(ent:GetPos()) < 128) then
-                        local entclass = ent:GetClass()
-                        if ((entclass == "prop_door_rotating" or entclass == "func_door" or entclass == "func_door_rotating") && !self.Fun_IgnoreDoor) then
-                            self.ActionOverride = "door"
-                            self.ActionOverrideEnt = ent
-                            self.ActionOverrideAngle = tr.HitNormal
-                        end
+                self.ActionOverrideTr = self:GetEyeTrace()
+                self.ActionOverrideEnt = self.ActionOverrideTr.Entity
+                self.ActionOverrideAngle = self.ActionOverrideTr.HitNormal
+
+                for k, v in pairs(self.ActionOverridesActive) do --runs each currently active action override boot
+                    if (GetAddonLoaded(SapActionOverride_WSID[k]) && (v != false)) then
+                        SapActionOverride_Boots[k](self)
                     end
                 end
             end
@@ -2203,28 +2285,44 @@ function ENT:Think()
         end)
         hook.Add('PreDrawEffects','sapDebugExtra3D'..self:EntIndex(),function()
             if !IsValid(self) then hook.Remove('PreDrawEffects','sapDebugExtra3D'..self:EntIndex()) return end
-                local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
-                local pos = self:GetPos() + Vector(0,0,0)
-                local normal = EyePos() - pos
 
-                    local phys = self:GetPhysicsObject();
-                    local physaabbOne physaabbTwo = self:GetPhysicsObject():GetAABB()
+            local posModelOffsetMin, posModelOffsetMax = self:GetCollisionBounds()
+            local pos = self:GetPos() + Vector(0,0,0)
+            local normal = EyePos() - pos
 
-                    if(SAPBOTDEBUG) then
-                        render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, SAPBOTCOLOR, true)
-                        --print(table.ToString(self.Fun_ActivePath, "Fun_ActivePath", true))
-                        --print(tostring(self.Fun_ActivePath))
-                        pos = pos + self:GetActivePathBasePos();
-                        if (self:GetNWInt("activePathNetLength", -1) > -1) then
-                            for entryNum = 0, self:GetNWInt("activePathNetLength", -1) do
-                                if (entryNum == 0) then
-                                    render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
-                                else
-                                    render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
-                                end
-                            end
+            local phys = self:GetPhysicsObject();
+            local physaabbOne physaabbTwo = self:GetPhysicsObject():GetAABB()
+
+            if(SAPBOTDEBUG) then
+                render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, SAPBOTCOLOR, true)
+                --print(table.ToString(self.Fun_ActivePath, "Fun_ActivePath", true))
+                --print(tostring(self.Fun_ActivePath))
+                pos = pos + self:GetActivePathBasePos();
+                if (self:GetNWInt("activePathNetLength", -1) > -1) then
+                    for entryNum = 0, self:GetNWInt("activePathNetLength", -1) do
+                        if (entryNum == 0) then
+                            render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
+                        else
+                            render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
                         end
                     end
+                end
+            end
+
+            --local rawrenderpos = self:GetPos()
+            --local CurEnt = self:GetNW2Entity("CurrentWeapon_",nil)
+
+            --local wep = self:GetActiveWeapon()
+            if (self:GetNW2Bool("HoldingProp_",false)) then --physgun beam rendering
+                local ent = self:GetNW2Vector("HoldingPropEnt_",Vector(0,0,0))
+                --local bone = 0
+                --local lpos = Vector(0,0,0)
+                --local obj = CurEnt:LookupAttachment("core")
+                local pos1 = self:GetHeadHeightVector() + self:GetPos()
+                local tangent = Vector(0,0,0)
+
+                DrawBeam(pos1, tangent, ent, SAPBOTCOLOR)
+            end
         end)
     end
 end
