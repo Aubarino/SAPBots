@@ -142,6 +142,8 @@ ENT.AnimEventEnd = 0
 ENT.LastAnimAct = 0
 ENT.CurrentAnimAct = 0
 
+ENT.UseAIServer = true --experimental
+
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
     if type(exists) == "function" then
@@ -1065,7 +1067,7 @@ end
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- SAY ANYTHING INTO CHAT AND TTS
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
-function ENT:Say(texttosay,soundboardsoun) -- forcedialog is to override soundboard
+function ENT:TrueSay(texttosay,soundboardsoun,forcedText) --the true function of say
     if (self.SapSoundboardOn and (math.random(0,self.SapSoundboardRate) == 0) and !self.TTStruespeak and !(GetResSoundboarders(self,3000) and soundboardsoun == 1) and !(soundboardsoun == 1 and !self.SapSoundboardMusic)) then -- then do soundboard
         self.SapSoundboardCurrent = true
         self.SapSoundboardMode = soundboardsoun --carry over for the type such as sound effect or music, 1 is music, 0 is sound
@@ -1076,6 +1078,14 @@ function ENT:Say(texttosay,soundboardsoun) -- forcedialog is to override soundbo
         self:TTSSpeak(texttosay)
         SapProcessChatText(self,texttosay) --process this dialog in the server for others to react to
     end
+end
+
+function ENT:Say(texttosay,soundboardsoun) -- forcedialog is to override soundboard
+-- if (self.UseAIServer) then
+--     queueAINetPromptForSapSay(self,"Random idle chat","rng inspiration <"..texttosay..">","very toxic gamer and tend to use swear words a lot")
+-- else
+    self:TrueSay(texttosay,soundboardsoun,false)
+    -- end
 end
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 

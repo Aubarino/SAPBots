@@ -5,6 +5,8 @@
 AddCSLuaFile()
 include("sapbot/SapNetwork.lua")
 AddCSLuaFile("sapbot/SapNetwork.lua")
+include("sapbot/SapAINet.lua")
+AddCSLuaFile("sapbot/SapAINet.lua")
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Actions Override stuff
