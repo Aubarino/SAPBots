@@ -12,6 +12,7 @@ SAPBOTDEBUG = false --debug mode
 SAPBOTHIDEICON = false --hide icons
 SAPBOTHIDETEXT = false --hide text such as health or chat status
 SAPBOTHIDECHAT = false --hide chat messages visually
+SAPAINETKEY = ""
 SAPBOTCOLOR = Color(0,255,0) --used in setting colors
 
 ENT.Base 			= "base_nextbot"
@@ -87,6 +88,8 @@ ENT.DialogSet = "main"
 ENT.TTSenabled = false
 ENT.TTStextform = ""
 ENT.SapCacheSay = ""
+ENT.SapCacheSaySubject = ""
+ENT.SapCacheSaySubjectInfo = ""
 ENT.SapCacheSayTime = 0
 
 --combat
@@ -1037,6 +1040,7 @@ end
 
 function ENT:SapBotDeregister()
     _SAPBOTS[self] = nil
+    _SAPBOTSNAMES[self:GetNW2String("Sap_Name")] = nil
     sap_lastleftsatbot = self:GetNW2String("Sap_Name")
 end
 
@@ -1049,43 +1053,69 @@ function ENT:ProcessMention(sourceent,text,offense)
     else
         targname = GetBestName(sourceent)
     end
-    if (howoffend > 1) then --if offended
-        if (self.Sap_SM_corruption > 0.8) then
-            ToSay = "toxic_to_ent"
-        elseif(self.Sap_SM_corruption > 0.6) then
-            ToSay = "hate_ent"
-        else
-            ToSay = "dislike_ent"
+    if (self.OpinionOnEnts[targname] != nil) then
+        if (howoffend > 1) then --if offended
+            if (self.Sap_SM_corruption > 0.8) then
+                ToSay = "toxic_to_ent"
+            elseif(self.Sap_SM_corruption > 0.6) then
+                ToSay = "hate_ent"
+            else
+                ToSay = "dislike_ent"
+            end
+            self.OpinionOnEnts[targname] = {self.OpinionOnEnts[targname][1] - (offense * 0.75),CurTime()}
+            self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet][ToSay],targname)
+            self.SapCacheSaySubject = "Upset with entity"
+            self.SapCacheSaySubjectInfo = "Inspiration generated <"..self.SapCacheSay.."> upset type <"..ToSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
+        else --if not offended
+            self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet]["convo_norm"]["Reply"],targname)
+            self.SapCacheSaySubject = "Replying to entity"
+            self.SapCacheSaySubjectInfo = "Inspiration generated <"..self.SapCacheSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
         end
-        self.OpinionOnEnts[targname] = {self.OpinionOnEnts[targname][1] - (offense * 0.75),CurTime()}
-        self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet][ToSay],targname)
-    else --if not offended
-        self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet]["convo_norm"]["Reply"],targname)
     end
 end
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- SAY ANYTHING INTO CHAT AND TTS
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
-function ENT:TrueSay(texttosay,soundboardsoun,forcedText) --the true function of say
-    if (self.SapSoundboardOn and (math.random(0,self.SapSoundboardRate) == 0) and !self.TTStruespeak and !(GetResSoundboarders(self,3000) and soundboardsoun == 1) and !(soundboardsoun == 1 and !self.SapSoundboardMusic)) then -- then do soundboard
-        self.SapSoundboardCurrent = true
-        self.SapSoundboardMode = soundboardsoun --carry over for the type such as sound effect or music, 1 is music, 0 is sound
-        self:TTSSpeak(texttosay)
+function SapTrueSay(sap,texttosay,soundboardsoun,forcedText) --shortcut true say for the sake of ignoring doingSoundboardForced
+    SapTrueSay(sap,texttosay,soundboardsoun,forcedText,false)
+end
+
+function SapTrueSay(sap,texttosay,soundboardsoun,forcedText,doingSoundboardForced) --the true function of say
+    if (sap.SapSoundboardOn && doingSoundboardForced) then -- then do soundboard
+        sap.SapSoundboardCurrent = true
+        sap.SapSoundboardMode = soundboardsoun --carry over for the type such as sound effect or music, 1 is music, 0 is sound
+        sap:TTSSpeak(texttosay)
     else
-        table.insert(_Sapbot_Chatlog,self:GetName()..": "..texttosay)
-        self:SetNW2String("sap_lastchatlog", (texttosay))
-        self:TTSSpeak(texttosay)
-        SapProcessChatText(self,texttosay) --process this dialog in the server for others to react to
+        table.insert(_Sapbot_Chatlog,sap:GetName()..": "..texttosay)
+        sap:SetNW2String("sap_lastchatlog", (texttosay))
+        sap:TTSSpeak(texttosay)
+        SapProcessChatText(sap,texttosay) --process this dialog in the server for others to react to
     end
 end
 
 function ENT:Say(texttosay,soundboardsoun) -- forcedialog is to override soundboard
--- if (self.UseAIServer) then
---     queueAINetPromptForSapSay(self,"Random idle chat","rng inspiration <"..texttosay..">","very toxic gamer and tend to use swear words a lot")
--- else
-    self:TrueSay(texttosay,soundboardsoun,false)
-    -- end
+    self:Say(texttosay,soundboardsoun,"Random idle chat","rng inspiration <"..texttosay..">")
+end
+function ENT:Say(texttosay,soundboardsoun,context,contextInfo) -- say but with more control over ai net specific stuff, route through here anyway
+    if (self.UseAIServer) then
+        if (SAPAINETKEY == "" || SAPAINETKEY == nil) then
+            print("USE AI SERVER IS ON FOR S.A.P BOT, BUT NO KEY DEFINED, FORCING OFF USEAINETKEY")
+            print("PLEASE ENTER YOUR API KEY FOR THIS TO WORK!!! FIND YOUR KEY AT : https://console.groq.com/keys")
+            self.UseAIServer = false
+        end
+    end
+    local doingSoundboard = (self.SapSoundboardOn and ((math.random(0,self.SapSoundboardRate) == 0) and !self.TTStruespeak and !(GetResSoundboarders(self,3000) and soundboardsoun == 1) and !(soundboardsoun == 1 and !self.SapSoundboardMusic))) --is it soundboarding
+    if (self.UseAIServer && !doingSoundboard) then --must both be in networked ai api mode and also not doing a soundboard
+        _SAPBOTSNAMES[self.Sap_Name] = self
+        if (context == "" || context == nil) then context = "Random idle chat" end
+        if (contextInfo == "" || contextInfo == nil) then contextInfo = "rng inspiration <"..texttosay..">" end
+        if (!self.TTSspeaking) then --cannot be using tts at the same time
+            queueAINetPromptForSapSay(self,context,contextInfo,"very toxic gamer and tend to use swear words a lot")
+        end
+    else
+        SapTrueSay(self,texttosay,soundboardsoun,false,doingSoundboard)
+    end
 end
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 
@@ -1121,7 +1151,7 @@ function ENT:OpinionChangeRemark(opinionamt,entname) -- their reaction to a CHAN
             end
 
             if (DoSay) then
-            self:Say(GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet][ToSay],entname),0)
+            self:Say(GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet][ToSay],entname),0,"Change in opinion","opinion changed for entity <"..entname..">")
             end
         end
     end
@@ -1671,6 +1701,7 @@ function ENT:RunBehaviour()
 
     if (self.SAPCached == false or self.SAPCached == nil) then
         table.insert(_SAPBOTS,self)
+        _SAPBOTSNAMES[self.Sap_Name] = self
         --if (SAPBOTDEBUG and SERVER) then print("S.A.P Bot Cached with ID "..#_SAPBOTS.." into _SAPBOTS") end
         self.SAPCached = true
     end
@@ -2179,6 +2210,7 @@ function ENT:Think()
     if (CLIENT) then
         if (self.SAPCached == false or self.SAPCached == nil) then
             table.insert(_SAPBOTS,self)
+            _SAPBOTSNAMES[self.Sap_Name] = self
             --if (SAPBOTDEBUG) then print("S.A.P Bot Cached with ID "..#_SAPBOTS.." into _SAPBOTS") end
             self.SAPCached = true
         end
@@ -2188,8 +2220,11 @@ function ENT:Think()
         self.SapCacheSayTime = CurTime() + math.Rand(1,3)
         --say carryover event, maybe mention, with delay
         if (self.SapCacheSay != "") then
-            self:Say(self.SapCacheSay,0)
+            self:Say(self.SapCacheSay,0,self.SapCacheSaySubject,self.SapCacheSaySubjectInfo)
             self.SapCacheSay = ""
+            self.SapCacheSaySubject = ""
+            self.SapCacheSaySubjectInfo = ""
+            
         end
     end
 

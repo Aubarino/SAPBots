@@ -11,6 +11,9 @@ AddCSLuaFile("sapbot/SapAINet.lua")
 -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Actions Override stuff
 -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+_Sapbot_ChatlogALL = {}
+
 function SapActionRegister(actionname,functionBoot,functionAction,info,default)
     SapActionRegister(SapActionRegister,functionBoot,functionAction,info,default,nil)
 end
@@ -620,6 +623,7 @@ _SapbotDG_DialogSetMainLoaded = false --if the dialog-main is loaded, if not the
 _Sapbot_Chatlog = {} --chat log of all sapbot dialog
 
 _SAPBOTS = {} --a constant updating table filled with nil(s) and sapbots if any.
+_SAPBOTSNAMES = {} --a constant updating table filled with nil(s) and sapbots if any.
 
 _Sapbot_Playermodels  = {}--all playermodels, is cached on first spawn of a sap bot and is obviously global
 
@@ -1434,6 +1438,11 @@ end)
 function SapProcessChatText(sourceent,text) --process dialog 'n text players and sap bots post into chat, along with any other source, sourceent will be nil if not provided
     local truetext = string.lower(text)
     if (SERVER) then
+        if (sourceent != nil && IsValid(sourceent)) then
+            table.insert(_Sapbot_ChatlogALL,"["..sourceent:GetName().."]:"..text)
+        else
+            table.insert(_Sapbot_ChatlogALL,"[Name Not Provided]:"..text)
+        end
         for g,thissap in ipairs(_SAPBOTS) do
             if (thissap != nil and IsValid(thissap)) then
                 if (truetext:find(string.lower(GetBestName(thissap)), 1, true)) then --sap bot is mentioned in this text

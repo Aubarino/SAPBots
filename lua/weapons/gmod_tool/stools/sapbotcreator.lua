@@ -65,7 +65,9 @@ TOOL.ClientConVar = {
     ["sapactivepathingmode"] = "0",
     ["sapignoredoormode"] = "0",
     ["sapnoantistuckmode"] = "0",
-    ["sapnojumpmode"] = "0"
+    ["sapnojumpmode"] = "0",
+    ["sapainetmode"] = "0",
+    ["sapainetmodekey"] = "",
 }
 
 local defaultvars = {
@@ -119,7 +121,9 @@ local defaultvars = {
     ["sapbotcreator_sapactivepathingmode"] = "0",
     ["sapbotcreator_sapignoredoormode"] = "0",
     ["sapbotcreator_sapnoantistuckmode"] = "0",
-    ["sapbotcreator_sapnojumpmode"] = "0"
+    ["sapbotcreator_sapnojumpmode"] = "0",
+    ["sapbotcreator_sapainetmode"] = "0",
+    ["sapbotcreator_sapainetmodekey"] = ""
 }
 
 function TOOL:DrawToolScreen( width, height )
@@ -217,6 +221,9 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Fun_IgnoreDoor = (tobool(self:GetClientNumber("sapignoredoormode", 0)))
     sapentity.Fun_NoAntistuck = (tobool(self:GetClientNumber("sapnoantistuckmode", 0)))
     sapentity.Fun_NoJump = (tobool(self:GetClientNumber("sapnojumpmode", 0)))
+    sapentity.UseAIServer = (tobool(self:GetClientNumber("sapainetmode", 0)))
+    local sapgroqkey = self:GetClientInfo( "sapainetmodekey" )
+    SAPAINETKEY = sapgroqkey
 
     if (!_saptoolgunconvarloaded) then --just incase
         for k, v in pairs(SapActionOverride_Scripts) do
@@ -641,6 +648,9 @@ function TOOL.BuildCPanel(panel)
     panel:ControlHelp("(but in small spaces, this can be an issue, so this turns it off.)")
     panel:CheckBox("No Jump Mode*","sapbotcreator_sapnojumpmode")
     panel:ControlHelp("(*makes them no longer jump around in certain conditions)")
+    panel:CheckBox("AI Net Mode (groq)*","sapbotcreator_sapainetmode")
+    panel:TextEntry("Groq Key", "sapbotcreator_sapainetmodekey" )
+    panel:ControlHelp("(*when you provide a key and enable this, they will talk via my own implementation of the groq API. It is simular to Chat GPT but without as much usage restriction while free!!!)")
     GenConVarsForActions(panel) --action overrides
 end
 
