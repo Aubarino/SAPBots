@@ -106,6 +106,8 @@ ENT.Fun_ActivePath = {} --the position vectors defining the path of active pathi
 ENT.Fun_IgnoreDoor = false
 ENT.Fun_NoAntistuck = false
 ENT.Fun_NoJump = false
+ENT.Fun_Votekick = false
+ENT.Fun_VotekickedAlready = false
 
 --actions
 ENT.ActionOverride = nil --things such as "door"
@@ -178,6 +180,14 @@ end
 
 function ENT:GetTarget()
     return(self.BadNearEnt) --best i could do for now, not the best, but this is an npc related function anyway, useless if a mod uses this lol
+end
+
+function ENT:GetWeapon()
+    return(self.CurrentWeapon)
+end
+
+function ENT:HasWeapon()
+    return(self.CurrentWeapon != nil)
 end
 
 function ENT:GetShootPos() --the general direction ya shooting in in worldspace via a position... ikr, weird
@@ -581,8 +591,6 @@ function ENT:Initialize()
     if (self.Fun_ActivePathingMode) then
         self:SetMoveType(MOVETYPE_VPHYSICS)
     end
-
-    
 
     self:InitRelaHooks() -- relationship shit mostly
 end
@@ -1111,9 +1119,57 @@ function ENT:Say(texttosay,soundboardsoun,context,contextInfo) -- say but with m
         if (context == "" || context == nil) then context = "Random idle chat" end
         if (contextInfo == "" || contextInfo == nil) then contextInfo = "rng inspiration <"..texttosay..">" end
         if (!self.TTSspeaking) then --cannot be using tts at the same time
-            queueAINetPromptForSapSay(self,context,contextInfo,"very toxic gamer and tend to use swear words a lot")
+            if (self.Fun_VotekickedAlready && !sapVoteActive) then self.Fun_VotekickedAlready = false end
+            queueAINetPromptForSapSay(self,context,contextInfo,"very toxic gamer and tend to use swear words a lot",(self.Fun_Votekick && !self.Fun_VotekickedAlready))
         end
     else
+        if (self.Fun_Votekick && !self.UseAIServer && SERVER) then
+            if (sapVoteActive) then
+                if (!self.Fun_VotekickedAlready) then
+                    local voteUser = sapVoteInfo.sapVoteUser
+                    print(voteUser)
+                    if !(voteUser == nil || voteUser == "") then
+                        if (self.OpinionOnEnts[voteUser] != nil) then
+                            voteUser = math.Clamp(self.OpinionOnEnts[voteUser][1],0,99) --opinion based voting 
+                            if (math.Round(math.random(0,voteUser)) < 1) then
+                                sapVoteYes()
+                                net.Start("sapVoteYes")
+                                net.Broadcast()
+                            else
+                                sapVoteNo()
+                                net.Start("sapVoteNo")
+                                net.Broadcast()
+                            end
+                            self.Fun_VotekickedAlready = true
+                        end
+                    else
+                        if (math.random(0,1) == 0) then --fully random vote if no opinion data can be found
+                            sapVoteYes()
+                            net.Start("sapVoteYes")
+                            net.Broadcast()
+                        else
+                            sapVoteNo()
+                            net.Start("sapVoteNo")
+                            net.Broadcast()
+                        end
+                        self.Fun_VotekickedAlready = true
+                    end
+                end
+            else
+                if (self.Fun_VotekickedAlready ) then self.Fun_VotekickedAlready = false end --when no active vote, clear the voted already status of each sap
+                if (math.random(0,40) == 0) then
+                    local randomSapToVote = ""
+                    for name,sapEntryNam in RandomPairs(_SAPBOTSNAMES) do
+                        if (sapEntryNam != nil && IsValid(sapEntryNam) && name != nil) then
+                            randomSapToVote = name
+                            break
+                        end
+                    end
+                    sapVoteKickStart(randomSapToVote)
+                    self.Fun_VotekickedAlready = true
+                end
+            end
+        end
         SapTrueSay(self,texttosay,soundboardsoun,false,doingSoundboard)
     end
 end
@@ -1397,7 +1453,7 @@ function ENT:EnemyReaction()
                     if (self.Stress < 10) then
                     self.Stress = self.Stress + ((1 - self.Sap_IPF_paranoid) * 0.01 + (self.Sap_IPF_strict * 0.01)) -- stress gain
                     end
-                    if ((self.IsAttacking or self.Fun_AggressionMode) and self.CurrentWeapon != nil and self.CurrentWeapon != NULL) then --attacking code
+                    if ((self.IsAttacking or self.Fun_AggressionMode) and self.CurrentWeapon != nil and self.CurrentWeapon != NULL and IsValid(entitytarget)) then --attacking code
                         local wep = self.CurrentWeapon
                         local targetpos = entitytarget:GetPos()
                         local eyetrace = self:GetEyeTrace()
@@ -1480,7 +1536,7 @@ function ENT:EnemyReaction()
                         end
 
                         self:GoalFaceTowards(targetpos,true)
-                    else --running code
+                    elseif(IsValid(entitytarget)) then --running code
                         local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
                         local posgoal = self:GetPos() + posgoaladditi
             

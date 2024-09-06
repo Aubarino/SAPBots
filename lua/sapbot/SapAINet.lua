@@ -3,11 +3,11 @@ AddCSLuaFile()
 local characterLimit = 126
 
 local sapbotChatLogCount = 0
-function SapGenPrompt(sap,triggerString,triggerContext,notes) --gen the prompt to send
+function SapGenPrompt(sap,triggerString,triggerContext,notes,canVote) --gen the prompt to send
     local opinionsGen = ""
     local maxRange = 0
     for nam,opin in RandomPairs(sap.OpinionOnEnts) do
-        if (maxRange > 32) then continue end --hard coded limit so opinions dont overflow, its random picked so there is high chance the ones looped over will be good enough
+        if (maxRange > 32 || opinionsGen == nil || nam == nil || opin == nil || opin[1] == nil) then continue end --hard coded limit so opinions dont overflow, its random picked so there is high chance the ones looped over will be good enough
         opinionsGen = opinionsGen..nam..":"..opin[1]..","
         maxRange = maxRange + 1
     end
@@ -25,17 +25,28 @@ function SapGenPrompt(sap,triggerString,triggerContext,notes) --gen the prompt t
             end
         end
     end
-    return(SapGenBasePrompt(sap.Sap_Name,triggerString,triggerContext,opinionsGen,personalityGen,sap.Stress,notes))
+    return(SapGenBasePrompt(sap.Sap_Name,triggerString,triggerContext,opinionsGen,personalityGen,sap.Stress,notes,canVote))
 end
 
-function SapGenBasePrompt(name,trigger,context,opinions,personality,stress,notes)
+function SapGenBasePrompt(name,trigger,context,opinions,personality,stress,notes,canVote)
+    local sapGenExtra = ""
+    if (canVote) then --makes them able to vote
+        if (sapVoteActive) then
+            local usernameVote = sapVoteInfo.sapVoteUser
+            if (usernameVote == name) then usernameVote = "YOU!" end
+            sapGenExtra = 'VOTES : (vote kick going on against '..sapVoteInfo.sapVoteUser..', with yes:'..sapVoteInfo.sapVoteYes..' no:'..sapVoteInfo.sapVoteYes..' ADD THIS EXACT MESSAGE OF "[VVG::*yes]" OR "[VVG::*no]" TO YOUR OUTPUT TO VOTE!)'
+        else
+            --print("vote kick in prompt!")
+            sapGenExtra = 'VOTES : (No vote kick active, YOU CAN CAST A VOTE BY DOING THIS EXACT FORMAT "[VVG::*NAME]" WITH "NAME" BEING THE USER, IN YOUR CHAT MESSAGE)'
+        end
+    end
     return(
         [[YOU ARE THE API OF A GMOD ADDON's FAKE PLAYER BOTS.
         YOUR OUTPUT MUST BE A SHORT STRING OF YOUR CHAT RESPONSE IN UNDER ]]..characterLimit..[[ CHARACTERS, YOUR OPINION OUTPUT CAN BE OVER THE CHARACTER LIMIT.
-        INCLUDE A FORMATTED OPINION MODIFICATIONS LIST IN THIS FORMAT "(]]..opinions..[[)", BUT ONLY INCLUDE WHAT OPINIONS YOU WANT TO CHANGE, AND NOT FOR THE NORMAL CHAT MESSAGE PART!
-        EXAMPLE "RESPONSE (TARGET ENTITY:CHANGED OPINION)"
+        INCLUDE FORMATTED OPINION MODIFICATIONS IN THIS FORMAT "(]]..opinions..[[)", BUT ONLY INCLUDE WHAT OPINIONS YOU WANT TO CHANGE, NOT IN THE NORMAL CHAT MESSAGE PART!
+        EXAMPLE "RESPONSE (TARGET ENTITY:CHANGED OPINION) [something extra if available]"
         YOU ARE NOT A ASSISTANT, YOU ARE A SAP BOT FAKE PLAYER, YOU THINK YOU ARE REAL.
-        YOU WILL ACT EXACTLY ACCORDING TO YOUR PROVIDED DATA, ONLY RESPOND IN THIS FORMAT!
+        YOU WILL ACT EXACTLY ACCORDING TO YOUR PROVIDED PERSONALITY AND DATA, ONLY RESPOND IN THIS FORMAT!
         You will be given your opinions of entities, lower means you are attacking them or fleeing.
         Personality values have a min of -1 and max of 1, lots of corruption value means they are a toxic gamer who swears a lot and is nasty, innocence is the opposite.
         The closer the Stress value to 1, the more likely you are attacking or fleeing currently.
@@ -45,12 +56,13 @@ function SapGenBasePrompt(name,trigger,context,opinions,personality,stress,notes
 
         YOUR NAME : (]]..name..[[)
         TRIGGER : (]]..trigger..[[)
+        PERSONALITY : (]]..personality..[[)
         TRIGGER CONTEXT : (]]..context..[[)
         DO NOT MENTION INSPIRATION
         OPINIONS : (]]..opinions..[[)
-        PERSONALITY : (]]..personality..[[)
         STRESS : (]]..stress..[[)
-        NOTES : (]]..notes..")"
+        NOTES : (]]..notes..[[)
+        ]]..sapGenExtra
     )
 end
 
@@ -93,11 +105,11 @@ local promptTemp = ""
 local nextPromptTime = 0
 sapAiNetWaitTime = 0
 
-function queueAINetPromptForSapSay(sap,triggerString,triggerContext,notes)
+function queueAINetPromptForSapSay(sap,triggerString,triggerContext,notes,canVote)
     if (sapAINetQueue == nil) then sapAINetQueueAmt = 0 else
         sapAINetQueueAmt = #sapAINetQueue
     end
-    promptTemp = SapGenPrompt(sap,triggerString,triggerContext,notes)
+    promptTemp = SapGenPrompt(sap,triggerString,triggerContext,notes,canVote)
     if (sapAINetQueueAmt < 10) then
         table.insert(sapAINetQueue,{
             ["prompt"] = promptTemp,
@@ -124,7 +136,7 @@ function processAINetChat()
                 if !(_SAPBOTSNAMES != nil && sapAINetQueue != nil && sapAINetQueueAmt != nil && sapAINetQueue[sapAINetQueueAmt] != nil && sapAINetQueue[sapAINetQueueAmt]["sap"] != nil) then break end
             end
             if (sapAINetQueue != nil && sapAINetQueue[sapAINetQueueAmt] != nil && sapAINetQueue[sapAINetQueueAmt]["prompt"] != nil && sapAINetQueue[sapAINetQueueAmt] != nil && sapAINetQueue[sapAINetQueueAmt]["sap"] != nil) then
-                sendPrompt(sapAINetQueue[sapAINetQueueAmt]["prompt"],sapAINetQueue[sapAINetQueueAmt]["sap"])
+                sapSendPrompt(sapAINetQueue[sapAINetQueueAmt]["prompt"],sapAINetQueue[sapAINetQueueAmt]["sap"])
                 table.remove(sapAINetQueue,sapAINetQueueAmt)
             end
         end
@@ -140,7 +152,7 @@ local function getTimeout(str)
 end
 
 --FUCK THIS, FUCK IT, FUCK MY LAST ATTEMPT, FUCK BRUTE FORCING IT, EW EW
--- function sendPrompt(prompt,sap)
+-- function sapSendPrompt(prompt,sap)
 --     local formattedPrompt = urlencode(prompt)
 --     --print("prompt:"..formattedPrompt)
 --     HTTP( {
@@ -212,7 +224,36 @@ function sapAiNetOpinionChange(inString,sapent)
     end
 end
 
-function sendPrompt(prompt,sap)
+function sapProcessPromptExtras(stringIn,sapent)
+    if (sapent == nil) then return(stringIn) end
+    local voteName = stringIn:match("%[VVG::(%a+)%]")
+    if voteName then
+        voteName = voteName:gsub("%*", "")
+        if (SERVER) then
+            if (voteName == "yes") then
+                sapent.Fun_VotekickedAlready = true
+                sapVoteYes()
+                net.Start("sapVoteYes")
+                net.Broadcast()
+            elseif (voteName == "no") then
+                sapent.Fun_VotekickedAlready = true
+                sapVoteNo()
+                net.Start("sapVoteNo")
+                net.Broadcast()
+            else
+                sapent.Fun_VotekickedAlready = true
+                sapVoteKickStart(voteName)
+            end
+        end
+    else
+        print("no vote found")
+    end
+    stringIn = (stringIn:gsub("%[[VVG::%a+]", "")):gsub("%*", "")
+    
+    return(stringIn)
+end
+
+function sapSendPrompt(prompt,sap)
     if (CLIENT) then return end
     local formattedPrompt = prompt
     --print("DOING!!!!!!!!!!!!!!!!!")
@@ -235,7 +276,7 @@ function sendPrompt(prompt,sap)
                     else
                         tosayTemp = tosayTemp:gsub('"', '')
                         sapAiNetOpinionChange(tosayTemp:match("%(([^)]+)%)"),sapEntity)
-                        tosayTemp = tosayTemp:gsub("%b()", "")
+                        tosayTemp = sapProcessPromptExtras(tosayTemp:gsub("%b()", ""),sapEntity)
                         --print("to say : "..tosayTemp)
                         SapTrueSay(sapEntity,tosayTemp,0,true)
                     end

@@ -134,6 +134,7 @@ end
 
 function net.ReadString()
     if (sapNetSapBot != nil) then
+        print("oop sap net active")
         return(sapNetString)
     end
     return originalNetReadString()

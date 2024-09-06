@@ -7,6 +7,8 @@ include("sapbot/SapNetwork.lua")
 AddCSLuaFile("sapbot/SapNetwork.lua")
 include("sapbot/SapAINet.lua")
 AddCSLuaFile("sapbot/SapAINet.lua")
+include("autorun/SapVotekickManager.lua")
+AddCSLuaFile("autorun/SapVotekickManager.lua")
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Actions Override stuff

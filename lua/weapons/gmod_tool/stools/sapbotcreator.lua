@@ -68,6 +68,7 @@ TOOL.ClientConVar = {
     ["sapnojumpmode"] = "0",
     ["sapainetmode"] = "0",
     ["sapainetmodekey"] = "",
+    ["sapvotekickmode"] = "0"
 }
 
 local defaultvars = {
@@ -123,7 +124,8 @@ local defaultvars = {
     ["sapbotcreator_sapnoantistuckmode"] = "0",
     ["sapbotcreator_sapnojumpmode"] = "0",
     ["sapbotcreator_sapainetmode"] = "0",
-    ["sapbotcreator_sapainetmodekey"] = ""
+    ["sapbotcreator_sapainetmodekey"] = "",
+    ["sapbotcreator_sapvotekickmode"] = "0"
 }
 
 function TOOL:DrawToolScreen( width, height )
@@ -222,6 +224,8 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Fun_NoAntistuck = (tobool(self:GetClientNumber("sapnoantistuckmode", 0)))
     sapentity.Fun_NoJump = (tobool(self:GetClientNumber("sapnojumpmode", 0)))
     sapentity.UseAIServer = (tobool(self:GetClientNumber("sapainetmode", 0)))
+    sapentity.Fun_Votekick = (tobool(self:GetClientNumber("sapvotekickmode", 0)))
+
     local sapgroqkey = self:GetClientInfo( "sapainetmodekey" )
     SAPAINETKEY = sapgroqkey
 
@@ -651,6 +655,8 @@ function TOOL.BuildCPanel(panel)
     panel:CheckBox("AI Net Mode (groq)*","sapbotcreator_sapainetmode")
     panel:TextEntry("Groq Key", "sapbotcreator_sapainetmodekey" )
     panel:ControlHelp("(*when you provide a key and enable this, they will talk via my own implementation of the groq API. It is simular to Chat GPT but without as much usage restriction while free!!!)")
+    panel:CheckBox("AI Net Can Vote Kick*","sapbotcreator_sapvotekickmode")
+    panel:ControlHelp("(*requires AI Net Mode to be active and with key.)")
     GenConVarsForActions(panel) --action overrides
 end
 
