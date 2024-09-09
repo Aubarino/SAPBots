@@ -3,6 +3,24 @@ AddCSLuaFile()
 local characterLimit = 126
 
 local sapbotChatLogCount = 0
+function SapLLMPersonalityGen(corruption)
+    local toPickNam = "modern gamer"
+    for nam,value in RandomPairs(_SapLLMPersonalConvert) do
+        if (value >= 0.5) then
+            if (corruption > value) then
+                toPickNam = nam
+                break
+            end
+        else
+            if (corruption < value) then
+                toPickNam = nam
+                break
+            end
+        end
+    end
+    return(toPickNam)
+end
+
 function SapGenPrompt(sap,triggerString,triggerContext,notes,canVote) --gen the prompt to send
     local opinionsGen = ""
     local maxRange = 0
@@ -17,13 +35,15 @@ function SapGenPrompt(sap,triggerString,triggerContext,notes,canVote) --gen the 
     
         sapbotChatLogCount = #_Sapbot_ChatlogALL
     if (_Sapbot_ChatlogALL != nil) then
+        triggerContext = triggerContext.." CHAT HISTORY OF YOU AND OTHERS:"
         for i = 0,-5, -1 do
             if !(sapbotChatLogCount - i < 1) then
                 if (_Sapbot_ChatlogALL[sapbotChatLogCount - i] == nil) then continue end
                 --print("chat from "..i.." ago :".._Sapbot_ChatlogALL[sapbotChatLogCount - i])
-                triggerContext = triggerContext.." Chat contents of "..(i * -1).." message(s) ago <".._Sapbot_ChatlogALL[sapbotChatLogCount - i]..">"
+                triggerContext = triggerContext.." "..(i * -1).." message(s) ago ".._Sapbot_ChatlogALL[sapbotChatLogCount - i]..","
             end
         end
+        triggerContext = triggerContext.." DO NOT DIRECTLY MIMICK PREVIOUS MESSAGES."
     end
     return(SapGenBasePrompt(sap.Sap_Name,triggerString,triggerContext,opinionsGen,personalityGen,sap.Stress,notes,canVote))
 end
@@ -57,11 +77,11 @@ function SapGenBasePrompt(name,trigger,context,opinions,personality,stress,notes
         YOUR NAME : (]]..name..[[)
         TRIGGER : (]]..trigger..[[)
         PERSONALITY : (]]..personality..[[)
+        CHARACTER NOTES : (]]..notes..[[)
+        DO NOT MENTION Possible Chaotic Inspiration, Do not directly mimick 'Possible Chaotic Inspiration' or the topics within it, as it is nonsensical.
         TRIGGER CONTEXT : (]]..context..[[)
-        DO NOT MENTION INSPIRATION
         OPINIONS : (]]..opinions..[[)
         STRESS : (]]..stress..[[)
-        NOTES : (]]..notes..[[)
         ]]..sapGenExtra
     )
 end
@@ -245,8 +265,6 @@ function sapProcessPromptExtras(stringIn,sapent)
                 sapVoteKickStart(voteName)
             end
         end
-    else
-        print("no vote found")
     end
     stringIn = (stringIn:gsub("%[[VVG::%a+]", "")):gsub("%*", "")
     

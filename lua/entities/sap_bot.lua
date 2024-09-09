@@ -148,6 +148,7 @@ ENT.LastAnimAct = 0
 ENT.CurrentAnimAct = 0
 
 ENT.UseAIServer = true --experimental
+ENT.AIServerPersonalityBase = "modern gamer" --defines how the AINet option will treat their personality data
 
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
@@ -1073,11 +1074,11 @@ function ENT:ProcessMention(sourceent,text,offense)
             self.OpinionOnEnts[targname] = {self.OpinionOnEnts[targname][1] - (offense * 0.75),CurTime()}
             self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet][ToSay],targname)
             self.SapCacheSaySubject = "Upset with entity"
-            self.SapCacheSaySubjectInfo = "Inspiration generated <"..self.SapCacheSay.."> upset type <"..ToSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
+            self.SapCacheSaySubjectInfo = "Possible Chaotic Inspiration <"..self.SapCacheSay.."> upset type <"..ToSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
         else --if not offended
             self.SapCacheSay = GenerateDialog(_SapbotDG_DialogSetTrees[self.DialogSet]["convo_norm"]["Reply"],targname)
             self.SapCacheSaySubject = "Replying to entity"
-            self.SapCacheSaySubjectInfo = "Inspiration generated <"..self.SapCacheSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
+            self.SapCacheSaySubjectInfo = "Possible Chaotic Inspiration <"..self.SapCacheSay.."> defined target entity <"..targname.."> opinion at <"..self.OpinionOnEnts[targname][1]..">"
         end
     end
 end
@@ -1103,7 +1104,7 @@ function SapTrueSay(sap,texttosay,soundboardsoun,forcedText,doingSoundboardForce
 end
 
 function ENT:Say(texttosay,soundboardsoun) -- forcedialog is to override soundboard
-    self:Say(texttosay,soundboardsoun,"Random idle chat","rng inspiration <"..texttosay..">")
+    self:Say(texttosay,soundboardsoun,"Random idle chat","Possible Chaotic Inspiration <"..texttosay..">")
 end
 function ENT:Say(texttosay,soundboardsoun,context,contextInfo) -- say but with more control over ai net specific stuff, route through here anyway
     if (self.UseAIServer) then
@@ -1117,10 +1118,11 @@ function ENT:Say(texttosay,soundboardsoun,context,contextInfo) -- say but with m
     if (self.UseAIServer && !doingSoundboard) then --must both be in networked ai api mode and also not doing a soundboard
         _SAPBOTSNAMES[self.Sap_Name] = self
         if (context == "" || context == nil) then context = "Random idle chat" end
-        if (contextInfo == "" || contextInfo == nil) then contextInfo = "rng inspiration <"..texttosay..">" end
+        if (contextInfo == "" || contextInfo == nil) then contextInfo = "Possible Chaotic Inspiration <"..texttosay..">" end
         if (!self.TTSspeaking) then --cannot be using tts at the same time
             if (self.Fun_VotekickedAlready && !sapVoteActive) then self.Fun_VotekickedAlready = false end
-            queueAINetPromptForSapSay(self,context,contextInfo,"very toxic gamer and tend to use swear words a lot",(self.Fun_Votekick && !self.Fun_VotekickedAlready))
+            --print("prompting with personality base : ".._SapLLMPersonality[self.AIServerPersonalityBase])
+            queueAINetPromptForSapSay(self,context,contextInfo,_SapLLMPersonality[self.AIServerPersonalityBase],(self.Fun_Votekick && !self.Fun_VotekickedAlready))
         end
     else
         if (self.Fun_Votekick && !self.UseAIServer && SERVER) then

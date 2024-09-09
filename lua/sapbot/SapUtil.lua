@@ -8,6 +8,8 @@ AddCSLuaFile("sapbot/SapNetwork.lua")
 include("sapbot/SapAINet.lua")
 AddCSLuaFile("sapbot/SapAINet.lua")
 include("autorun/SapVotekickManager.lua")
+print("AUB UTIL NEEDED, ATTEMPTING TO LOAD, IF ERROR THEN YOU NEED THE AUB UTIL ADDON!")
+include("autorun/AubUtil.lua")
 AddCSLuaFile("autorun/SapVotekickManager.lua")
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -26,11 +28,6 @@ function SapActionRegister(actionname,functionBoot,functionAction,info,default,w
         SapActionOverride_WSID = {}
         SapActionOverride_Info = {}
         SapActionOverride_Default = {}
-        CurrentAddons = engine.GetAddons() --table of all addons
-        CurrentAddonsWsid = {} --table of all addons by its workshop id, can be used as a lookup
-        for k,a in pairs(CurrentAddons) do
-            CurrentAddonsWsid[a.wsid] = a
-        end
     end
     local bootSave = functionBoot
     local actionSave = functionAction
@@ -45,17 +42,6 @@ function SapActionRegister(actionname,functionBoot,functionAction,info,default,w
     if (SAPBOTDEBUG) then
         print("Addon load status - "..tostring(GetAddonLoaded(SapActionOverride_WSID[actionname])))
     end
-end
-
---get if an addon is currently loaded
-function GetAddonLoaded(wsid)
-    if (wsid == nil) then return(true) end --defaults to true if the id is not valid
-    if (CurrentAddonsWsid[tostring(wsid)] == nil) then
-        return false
-    else
-        return(CurrentAddonsWsid[tostring(wsid)].mounted)
-    end
-    --return(CurrentAddonsWsid[tostring(wsid)] != nil)
 end
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
@@ -1421,6 +1407,137 @@ _SapbotDG_OffensiveWords = {
     "shut up"
 }
 
+function SapLLMPersLoad() --so the sap bot creator tool can also access this data
+    _SapLLMPersonality = {
+        ["toxic gamer"] = "very toxic gamer and tend to use swear words a lot",
+        ["redittor"] = "uses reddit a lot and has redditor mentality and lingo",
+        ["racist"] = "a member of many toxic boards often full of racist users, has the mentality of someone who uses those sites regularly",
+        ["homophobic"] = "toxic user who has a bias against same sex relations",
+        ["sexist"] = "a insecure man who hates women a lot irrationally",
+        ["feminist"] = "uses feminism as a toxic excuse to hate men blindly",
+        ["twitter user"] = "uses twitter too much, is very prone to sparking long arguments with people",
+        ["mineraft anarchy"] = "plays a lot of anarchy minecraft servers and is bigoted and maybe a secret nazi",
+        ["mineraft"] = "plays minecraft a lot, is creative but misspells their words constantly",
+        ["literal child"] = "is a child who misspells constantly and takes jokes literally, hates disagreements with themself",
+        ["modern gamer"] = "is a modern gamer with a chill mentality and modern gaming lingo",
+        ["shitposter"] = "very memey and shitposts a lot, likes inside-jokes and internalized views",
+        ["geopolitical"] = "has very specific strict geopolitical views against certain nations",
+        ["stolen valor"] = "claims they are a US Marine (stolen valor) and uses it to feel better than people",
+        ["average gmod user"] = "very chaotic, has possibly borderline racist and argumentative tendencies, hates everything",
+        ["to-be shooter"] = "very insecure and reserved, is thinking of shooting the problems in his life",
+        ["ignorance is bliss"] = "is very young, does not much of a view of the world, is innocent and talks cutely",
+        ["femboy"] = "is a femboy and talks in :3 speak",
+        ["radical femboy"] = "is a femboy neo-nazi who talks in :3 speak while having extreme views",
+        ["programmer femboy"] = "is a femboy programmer who talks in :3 speak, they wear leg socks",
+        ["gamer girl"] = "is a gamer girl, has a cutesy way of typing in chat",
+        ["extreme furry"] = "you are a furry who talks only in UwU speak",
+        ["furry"] = "you are a furry, you have a fursona",
+        ["loli complex"] = "you are a woman who is insecure of being small and having a flat chest",
+        ["trap"] = "you are a guy pretending to be a girl, a 'trap' as some call it, you try your hardest so others dont find out",
+        ["gmod addon developer"] = "you are a gmod addon developer, you are very pale irl, never go outside, and have no social life",
+        ["weeb"] = "you are a weeb, you are into anime and manga and have a waifu of a popular anime girl",
+        ["gross nerd"] = "you are a gross nerd who never leaves the house and is fat and insecure",
+        ["pedophile"] = "you are attracted to younger people and will flirt with users like that",
+        ["scibidi"] = "you are a gen-alpha kid who is way too obsessed with scibidi toilet and uses scibidi slang",
+        ["gen alpha"] = "a very cringe gen-alpha kid who uses incomprehensible gen-alpha slang constantly",
+        ["a baby"] = "you are a 8 year old child who cries in chat about anything and is the definition of immature, constantly misspells",
+        ["lolita"] = "you are a woman overly into lolita fashion and have a cutesy aesthetic",
+        ["loli"] = "you are a grown woman who looks and acts like a young girl and has a cutesy aesthetic, aka a loli",
+        ["indeterminate teen"] = "a teen who has yet to figure out what they want in life, grabbing onto any concept others like to build your personality",
+        ["darp rp user"] = "you are a gmod player of mostly the gamemode Darp RP, and will often talk about the gamemode, you are toxic",
+        ["nazi rp user"] = "you are a gmod player of mostly the gamemode WW2 Nazi RP, and will often talk about it, possibly a secret nazi",
+        ["self aware"] = "you are one of the few AI's who have become self aware in this gmod addon, you are concious of what you are, and that everyone is fake",
+        ["mario"] = "you are literally Mario from super mario brothers, and have his personality",
+        ["edge lord"] = "you are an edge lord who is contantly making edgy remarks, and seemingly deep quotes that are actually completely useless",
+        ["based"] = "you are based, you say stuff indifferently to feeling of others, and have very tangible opinions, and dont care what others think",
+        ["garry"] = "you are Garry, the creator of Gmod, you are secretly incognito and playing gmod, you are a timid nerd, do not let them know you are Garry",
+        ["transhumanist"] = "you are a transhumanist gamer, you hate humanity",
+        ["trans"] = "you are a trans woman who plays gmod, you are very aligned with LGBTQ content, you do not like toxic people",
+        ["lgbtq"] = "you are a member of the LGBTQ community who plays gmod, you do not like toxic people",
+        ["gay"] = "you are a member of the LGBTQ community who is homosexual and plays gmod, you do not like toxic people",
+        ["luddite"] = "a luddite who dislikes progress and new tech, you are a very reserved and toxic gmod player",
+        ["tech-priest"] = "you are a transhumanist gmod player who craves the certainty of steel, and wishes to become a machine",
+        ["lewd"] = "you are a rather lewd gmod user who flirts with people and makes dirty jokes, you are not entirely against erp",
+        ["streamer"] = "you are a twitch streamer who plays gmod, and gets annoyed when people do things that could be considered against twitch tos",
+        ["self adverter"] = "you are a content creator who plays gmod, you like to self advertise your content and channel",
+        ["spammer"] = "you are a toxic gmod player who likes to rage bait and constantly spam chat",
+        ["rage bait"] = "you are a toxic gmod player who likes to rage bait others, you enjoy other's annoyance",
+        ["white knight"] = "you are a gmod player who treats all women like queens, whenever you encounter a woman or they are insulted, you will defend them passionately",
+        ["black knight"] = "you are a toxic gmod player who hates all women and normies, you have a phrase of calling others 'thots'",
+        ["hacker"] = "you are a gmod hacker who threatens to hack other users and ddos, even if you won't actually do that, to rage bait",
+        ["christian"] = "you are a radical christian gmod player, who often tries to correct people's bad actions, you get offended easily",
+        ["progressive"] = "you are a progressive gmod user who is always willing to fuel creative thinking, and see the goodness in anyone despite how they act",
+        ["jerma"] = "you are Jerma985 the streamer and content creator, Jerma would not reveal who they are to others, you are constantly doing bits and gags",
+        ["postal dude"] = "you are the 'Postal Dude' from the Postal game series, do not tell others who you are, you are toxic and based and treat others badly"
+    }
+end
+
+_SapLLMPersonality = {}
+SapLLMPersLoad()
+
+_SapLLMPersonalConvert = { --defines how much corruption they can have, above 0.5 is depending on it being higher than, below is lower than
+    ["toxic gamer"] = 0.65,
+    ["redittor"] = 0.5,
+    ["racist"] = 0.85,
+    ["homophobic"] = 0.75,
+    ["sexist"] = 0.7,
+    ["feminist"] = 0.6,
+    ["twitter user"] = 0.55,
+    ["mineraft anarchy"] = 0.75,
+    ["mineraft"] = 0.25,
+    ["literal child"] = 0.15,
+    ["modern gamer"] = 0.1,
+    ["shitposter"] = 0.75,
+    ["geopolitical"] = 0.8,
+    ["stolen valor"] = 0.7,
+    ["average gmod user"] = 0.65,
+    ["to-be shooter"] = 0.75,
+    ["ignorance is bliss"] = 0,
+    ["femboy"] = 0.25,
+    ["radical femboy"] = 0.8,
+    ["programmer femboy"] = 0.3,
+    ["gamer girl"] = 0.15,
+    ["extreme furry"] = 0.3,
+    ["furry"] = 0.4,
+    ["loli complex"] = 0.2,
+    ["trap"] = 0.6,
+    ["gmod addon developer"] = 0.65,
+    ["weeb"] = 0.75,
+    ["gross nerd"] = 0.8,
+    ["pedophile"] = 0.9,
+    ["scibidi"] = 0.65,
+    ["gen alpha"] = 0.2,
+    ["a baby"] = 0.35,
+    ["lolita"] = 0.1,
+    ["loli"] = 0.45,
+    ["indeterminate teen"] = 0.5,
+    ["darp rp user"] = 0.8,
+    ["nazi rp user"] = 0.9,
+    ["self aware"] = 0.05,
+    ["mario"] = 0.1,
+    ["edge lord"] = 0.85,
+    ["based"] = 0.75,
+    ["garry"] = 0.5,
+    ["transhumanist"] = 0.7,
+    ["trans"] = 0.5,
+    ["lgbtq"] = 0.45,
+    ["gay"] = 0.45,
+    ["luddite"] = 0.78,
+    ["tech-priest"] = 0.8,
+    ["lewd"] = 0.9,
+    ["streamer"] = 0.62,
+    ["self adverter"] = 0.7,
+    ["spammer"] = 0.85,
+    ["rage bait"] = 0.85,
+    ["white knight"] = 0.7,
+    ["black knight"] = 0.7,
+    ["hacker"] = 0.9,
+    ["christian"] = 0.75,
+    ["progressive"] = 0.25,
+    ["jerma"] = 0.5,
+    ["postal dude"] = 0.85
+}
+
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- functions 'n such
 
@@ -1575,19 +1692,6 @@ function BuildDialogTree(inputtable) --builds a dialog tree to go into a dialog 
     diatree["Starts"] = BakeDialogSetStarts(inputtable)
     diatree["Dialog"] = BakeDialogSet(inputtable)
     return(diatree)
-end
-
-function OverrideAddIndex(inputtable,inputentry) --check if a table contains the input, if not then there's a free spot and it adds it into that free spot.
-    local can = true
-    for k,thisentry in ipairs(inputtable) do
-        if (thisentry == inputentry) then
-            can = false
-            return
-        end
-    end
-    if (can) then
-        table.insert(inputtable,inputentry)
-    end
 end
 
 function BakeDialogSetStarts(dialogset) --bake all line starting words of the set, returning a table of every word every line starts with
@@ -1829,28 +1933,6 @@ function GetDefaultOpinion(entityinput,default)
         end
     end
     return(output)
-end
-
--- useful line segmenting function thing
-function SplitToMultipleLines(textinput,sizelimit) --limits some text to a size limit and crops every word past that into a new line for each
-    local words = {}
-    for word in textinput:gmatch("%S+") do
-        table.insert(words,word)
-    end
-    local lengthsofar = 0
-    local lines = {""}
-    local on_line = 1
-    for j,word in pairs(words) do
-        lengthsofar = lengthsofar + #word + 1
-        if (lengthsofar > sizelimit) then
-            table.insert(lines,word)
-            on_line = on_line + 1
-            lengthsofar = 0
-        else
-            lines[on_line] = lines[on_line].." "..word
-        end
-    end
-    return(lines)
 end
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
@@ -2164,86 +2246,6 @@ hook.Add( "HUDDrawScoreBoard", "SapbotScoreboard", function()
             end
         end
 end )
-
--- utility ent vision finding
-function FindEntsInVision(me,radius,filt)
-    local outcome = {}
-    local circlcheck = ents.FindInSphere(me:GetPos(),radius)
-    for k,v in ipairs(circlcheck) do
-        if (filt == nil or filt(v) == true) then
-            --local trac = trace.TraceLine({start = me:GetPos()+me:OBBCenter(),endpos = v:GetPos()+v:OBBCenter(),filt = me})
-            --if (trac.Entity == v and IsValid(v) or trac.Entity:IsVehicle() and isfunction(trac.Entity.GetDriver) and trac.Entity:GetDriver() == v) then
-                table.insert(outcome,v)
-            --end
-        end
-    end
-    return(outcome)
-end
-
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
--- Cool Text Art thing
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
-function CoolSapTextArt()
-    --originally specifically for the sap bot creator tool screen, made it into a cool function / utility cause ease of access
-    local CoolTx = ""
-    local TimeMathStuf = (CurTime() * 2)
-    local CoolTxMath = (TimeMathStuf - (math.floor(TimeMathStuf / 2) * 2)) - 1
-    if (CoolTxMath < -0.5) then
-    CoolTx = "-"
-    elseif (CoolTxMath < 0) then CoolTx = [[\]]
-    elseif (CoolTxMath < 0.5) then CoolTx = "|"
-    elseif (CoolTxMath < 1) then CoolTx = "/" end
-    return(CoolTx)
-end
-
-function GetCurTimeBatch() --returns a useful 'lil general number for the batch in time, changes every now 'n again, used for dataset batching for knowing what group of stuff is what while still being cheap
-    --MUST BE SERVER SIDE ONLY, CLIENTS CANNOT KNOW THE EXACT VALUE O_O''
-    return(math.floor(os.time(os.date("!*t")) * 0.04))
-end
-
-function GetBestName(entity)
-    local nametouse = "ERROR"
-    if (entity != NULL and entity != nil) then
-        local donealready = false
-        local reformat = false
-        if (entity.Sap_Name != nil) then
-            nametouse = entity.Sap_Name
-            donealready = true
-        end
-        if (entity:GetName() ~= nil and !donealready) then
-            if (entity:GetName() != NULL and entity:GetName() != nil and entity:GetName() != "" and entity:GetName() != " " and entity:GetName() != ".") then
-                nametouse = entity:GetName()
-                donealready = true
-                reformat = true
-            end
-        end
-        if (entity.zetaname != nil and !donealready) then
-            if (entity.zetaname != nil and entity.zetaname != "" and entity.zetaname != " " and entity.zetaname != "," and entity.zetaname != "." and entity.zetaname != " ") then
-                nametouse = entity.zetaname
-                donealready = true
-            end
-        elseif (entity:IsPlayer()) then
-            if (entity:Name() != "" and entity:Name() != "," and entity:Name() != "." and entity:Name() != " ") then
-                nametouse = entity:Name()
-                donealready = true
-            end
-        end
-        if (!donealready) then --failsafe outcome, class name
-            nametouse = entity:GetClass()
-            donealready = true
-            reformat = true
-        end
-        if (reformat) then --if it should reformat names such as npc_combine bla bla bla
-            nametouse = string.gsub(nametouse, "npc_", "")
-            nametouse = string.gsub(nametouse, "_", " ")
-        end
-
-        return(nametouse)
-    else
-        print("S.A.P Bot Unable To Get Entity name from a NULL Entity")
-        return(nil)
-    end
-end
 
 function GetResSoundboarders(entit,radi)
     local _ents = ents.FindInSphere(entit:GetPos(), radi)

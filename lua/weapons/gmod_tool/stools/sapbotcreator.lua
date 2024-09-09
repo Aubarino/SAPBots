@@ -68,6 +68,7 @@ TOOL.ClientConVar = {
     ["sapnojumpmode"] = "0",
     ["sapainetmode"] = "0",
     ["sapainetmodekey"] = "",
+    ["sapainetpersonality"] = "dynamic",
     ["sapvotekickmode"] = "0"
 }
 
@@ -125,6 +126,7 @@ local defaultvars = {
     ["sapbotcreator_sapnojumpmode"] = "0",
     ["sapbotcreator_sapainetmode"] = "0",
     ["sapbotcreator_sapainetmodekey"] = "",
+    ["sapbotcreator_sapainetpersonality"] = "dynamic",
     ["sapbotcreator_sapvotekickmode"] = "0"
 }
 
@@ -228,6 +230,11 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
 
     local sapgroqkey = self:GetClientInfo( "sapainetmodekey" )
     SAPAINETKEY = sapgroqkey
+    if (self:GetClientInfo("sapainetpersonality") == "dynamic") then
+        sapentity.AIServerPersonalityBase = SapLLMPersonalityGen(sapentity.Sap_SM_corruption)
+    else
+        sapentity.AIServerPersonalityBase = self:GetClientInfo("sapainetpersonality")
+    end
 
     if (!_saptoolgunconvarloaded) then --just incase
         for k, v in pairs(SapActionOverride_Scripts) do
@@ -655,8 +662,18 @@ function TOOL.BuildCPanel(panel)
     panel:CheckBox("AI Net Mode (groq)*","sapbotcreator_sapainetmode")
     panel:TextEntry("Groq Key", "sapbotcreator_sapainetmodekey" )
     panel:ControlHelp("(*when you provide a key and enable this, they will talk via my own implementation of the groq API. It is simular to Chat GPT but without as much usage restriction while free!!!)")
-    panel:CheckBox("AI Net Can Vote Kick*","sapbotcreator_sapvotekickmode")
-    panel:ControlHelp("(*requires AI Net Mode to be active and with key.)")
+    local AINetPersonality = panel:ComboBox("Personality Base*","sapbotcreator_sapainetpersonality")
+    AINetPersonality:AddChoice("Dynamic (based on personality graph)","dynamic")
+    AINetPersonality:SetSortItems(false)
+    AINetPersonality:AddSpacer()
+    SapLLMPersLoad()
+    for k,v in pairs(_SapLLMPersonality) do
+        AINetPersonality:AddChoice(capitalizeWords(string.gsub(k, "_", " ")),k)
+    end
+    panel:ControlHelp("(*when the AI Net Mode is on, this controls how their personality prompt will generate)")
+
+    panel:CheckBox("Can Vote Kick*","sapbotcreator_sapvotekickmode")
+    panel:ControlHelp("(*Makes them able to kick each other. AI Net Mode can also woth with this, but its more rare.)")
     GenConVarsForActions(panel) --action overrides
 end
 
