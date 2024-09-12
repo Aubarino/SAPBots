@@ -42,12 +42,15 @@ ENT.Sap_SM_innocence = ""
 ENT.Sap_SM_corruption = ""
 ENT.Sap_SM_openminded = ""
 ENT.Sap_SM_closeminded = ""
+ENT.Sap_PersonalityRandom = false
 
 ENT.Sap_WanderRange = 256
 
 --random information
 ENT.Sap_Name = ""
+ENT.Sap_NameRandom = false
 ENT.Sap_Model = ""
+ENT.Sap_ModelRandom = false
 
 ENT.SpawnDone = true --done spawn
 ENT.SapSpawnOverride = false --if true then don't do the cool spawn animation thing
@@ -78,6 +81,7 @@ ENT.TTScurrent_phoneme = ""
 ENT.TTScurrent_num = 0
 ENT.TTSscripttable = {}
 ENT.TTSname = "" --heavy_tf2
+ENT.TTSnameRandom = false
 ENT.SapSoundboard = ""
 ENT.SapSoundboardOn = false
 ENT.SapSoundboardMode = 0
@@ -553,7 +557,9 @@ function ENT:Initialize()
     self:SetColor(SAPBOTCOLOR)
     self:SetModel("models/player/skeleton.mdl")
 
-    self.Sap_id = math.Round(math.Rand( 0, 9999999 ))
+    if (self.Sap_id == nil || self.Sap_id == 0) then
+        self.Sap_id = math.Round(math.Rand( 0, 9999999 ))
+    end
     self.Living = true
     self.Dead = false
     self.ThinkingProc = false
@@ -1050,6 +1056,7 @@ end
 function ENT:SapBotDeregister()
     _SAPBOTS[self] = nil
     _SAPBOTSNAMES[self:GetNW2String("Sap_Name")] = nil
+    _SAPBOTSSAPIDS[self.Sap_id] = nil
     sap_lastleftsatbot = self:GetNW2String("Sap_Name")
 end
 
@@ -1117,6 +1124,7 @@ function ENT:Say(texttosay,soundboardsoun,context,contextInfo) -- say but with m
     local doingSoundboard = (self.SapSoundboardOn and ((math.random(0,self.SapSoundboardRate) == 0) and !self.TTStruespeak and !(GetResSoundboarders(self,3000) and soundboardsoun == 1) and !(soundboardsoun == 1 and !self.SapSoundboardMusic))) --is it soundboarding
     if (self.UseAIServer && !doingSoundboard) then --must both be in networked ai api mode and also not doing a soundboard
         _SAPBOTSNAMES[self.Sap_Name] = self
+        _SAPBOTSSAPIDS[self.Sap_id] = self
         if (context == "" || context == nil) then context = "Random idle chat" end
         if (contextInfo == "" || contextInfo == nil) then contextInfo = "Possible Chaotic Inspiration <"..texttosay..">" end
         if (!self.TTSspeaking) then --cannot be using tts at the same time
@@ -1760,6 +1768,7 @@ function ENT:RunBehaviour()
     if (self.SAPCached == false or self.SAPCached == nil) then
         table.insert(_SAPBOTS,self)
         _SAPBOTSNAMES[self.Sap_Name] = self
+        _SAPBOTSSAPIDS[self.Sap_id] = self
         --if (SAPBOTDEBUG and SERVER) then print("S.A.P Bot Cached with ID "..#_SAPBOTS.." into _SAPBOTS") end
         self.SAPCached = true
     end
@@ -2269,6 +2278,7 @@ function ENT:Think()
         if (self.SAPCached == false or self.SAPCached == nil) then
             table.insert(_SAPBOTS,self)
             _SAPBOTSNAMES[self.Sap_Name] = self
+            _SAPBOTSSAPIDS[self.Sap_id] = self
             --if (SAPBOTDEBUG) then print("S.A.P Bot Cached with ID "..#_SAPBOTS.." into _SAPBOTS") end
             self.SAPCached = true
         end
@@ -2358,7 +2368,7 @@ function ENT:Think()
                     local pitch = math.acos(math.Clamp(normal:Dot(xyNormal), -1, 1))
                     local cos = math.cos(pitch)
                     normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
-                    render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
+                    render.DrawQuadEasy(pos, normal, scaling, scaling,SAPBOTCOLOR, 180)
                 end
             end
         end)
@@ -2383,7 +2393,8 @@ function ENT:Think()
                 local pitch = math.acos(math.Clamp(normal:Dot(xyNormal), -1, 1))
                 local cos = math.cos(pitch)
                 normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
-                render.DrawQuadEasy(pos, normal, scaling, scaling,color_white, 180)
+
+                render.DrawQuadEasy(pos, normal, scaling, scaling,SAPBOTCOLOR, 180)
             end
         end)
         hook.Add('PreDrawEffects','sapDebugExtra3D'..self:EntIndex(),function()

@@ -612,6 +612,7 @@ _Sapbot_Chatlog = {} --chat log of all sapbot dialog
 
 _SAPBOTS = {} --a constant updating table filled with nil(s) and sapbots if any.
 _SAPBOTSNAMES = {} --a constant updating table filled with nil(s) and sapbots if any.
+_SAPBOTSSAPIDS = {}
 
 _Sapbot_Playermodels  = {}--all playermodels, is cached on first spawn of a sap bot and is obviously global
 

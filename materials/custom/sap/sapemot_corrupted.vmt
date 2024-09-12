@@ -2,4 +2,5 @@
 {
 	"$basetexture" "custom/sap/sapemot_corrupted"
 	"$alphatest" 1
+	"$vertexcolor" 1
 }

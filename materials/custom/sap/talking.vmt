@@ -2,4 +2,5 @@
 {
 	"$basetexture" "custom/sap/talking"
 	"$alphatest" 1
+	"$vertexcolor" 1
 }

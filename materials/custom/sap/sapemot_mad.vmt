@@ -2,4 +2,5 @@
 {
 	"$basetexture" "custom/sap/sapemot_mad"
 	"$alphatest" 1
+	"$vertexcolor" 1
 }

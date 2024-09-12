@@ -203,7 +203,7 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
         sapentity.Sap_SM_corruption = smX
         sapentity.Sap_SM_openminded = smY
         sapentity.Sap_SM_closeminded = 1 - smY
-
+        sapentity.Sap_PersonalityRandom = true
     else --NORMAL non-random PERSONALITY CARRY-OVER INFO
         sapentity.Sap_Intelligence = self:GetClientNumber( "sapintelligence" )
         sapentity.Sap_Chaos = self:GetClientNumber( "sapchaos" )
@@ -217,6 +217,7 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
         sapentity.Sap_SM_corruption = self:GetClientNumber( "sapsmcorruption" )
         sapentity.Sap_SM_openminded = self:GetClientNumber( "sapsmopenminded" )
         sapentity.Sap_SM_closeminded = self:GetClientNumber( "sapsmcloseminded" )
+        sapentity.Sap_PersonalityRandom = false
     end
     sapentity.Sap_WanderRange = self:GetClientNumber( "sapwander" )
     sapentity.NPCMenuSpawned = false
@@ -288,8 +289,10 @@ function TOOL:Transmute(entityinput) --transmute any object into a sap bot or up
         local sapname = ""
         if (tobool(self:GetClientNumber("sapnamerandom", 0))) then
             sapname = GenerateName() --generates procedural name, if it should
+            sapbot.Sap_NameRandom = true
         else
             sapname = self:GetClientInfo( "sapname" ) != "" and self:GetClientInfo( "sapname" ) or nil
+            sapbot.Sap_NameRandom = false
         end
 
         if (SERVER) then
@@ -301,8 +304,10 @@ function TOOL:Transmute(entityinput) --transmute any object into a sap bot or up
                     break
                 end
                 sapbot.TTSname = topick
+                sapbot.TTSnameRandom = true
             else
                 sapbot.TTSname = self:GetClientInfo( "tts" )
+                sapbot.TTSnameRandom = false
             end
             sapbot.Sap_Name = sapname
             local healthtodo = self:GetClientInfo("saphealth")
@@ -375,9 +380,11 @@ function TOOL:SpawnSAPbot(pos)
 	local sapmodel = self:GetClientInfo( "sapmodel" ) != "" and self:GetClientInfo( "sapmodel" ) or nil
     local sapname = ""
     if (tobool(self:GetClientNumber("sapnamerandom", 0))) then
-    sapname = GenerateName() --generates procedural name, if it should
+        sapname = GenerateName() --generates procedural name, if it should
+        sapbot.Sap_NameRandom = true
     else
-    sapname = self:GetClientInfo( "sapname" ) != "" and self:GetClientInfo( "sapname" ) or nil
+        sapname = self:GetClientInfo( "sapname" ) != "" and self:GetClientInfo( "sapname" ) or nil
+        sapbot.Sap_NameRandom = false
     end
 
     --client to entity stuff
@@ -396,15 +403,19 @@ function TOOL:SpawnSAPbot(pos)
                 break
             end
             sapbot.TTSname = topick
+            sapbot.TTSnameRandom = true
         else
             sapbot.TTSname = self:GetClientInfo( "tts" )
+            sapbot.TTSnameRandom = false
         end
 
         sapbot.TTSenabled = (tobool(self:GetClientNumber("ttsenable", 0)))
         if (tobool(self:GetClientNumber("sapmodelrandom", 0))) then
             sapbot.Sap_Model = "random"
+            sapbot.Sap_ModelRandom = true
         else
             sapbot.Sap_Model = sapmodel
+            sapbot.Sap_ModelRandom = false
         end
 
         sapbot.SapSoundboard = self:GetClientInfo( "sapsoundboard" )

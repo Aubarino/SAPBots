@@ -2,4 +2,5 @@
 {
 	"$basetexture" "custom/sap/sapemot_grumpy"
 	"$alphatest" 1
+	"$vertexcolor" 1
 }

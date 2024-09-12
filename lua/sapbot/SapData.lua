@@ -3,6 +3,223 @@ AddCSLuaFile()
 _Sapbot_WeaponBlacklist = {} --weapons to not spawn with or use
 _SapbotPropDatasets = {}
 
+local tableDataTemp = {}
+function SapBotToData(sap) --turns a sap bot into a table of data
+    tableDataTemp = {
+        ["Sap_id"] = sap.Sap_id,
+        ["Sap_Intelligence"] = sap.Sap_Intelligence,
+        ["Sap_Chaos"] = sap.Sap_Chaos,
+        ["Sap_DefaultTrustFactor"] = sap.Sap_DefaultTrustFactor,
+
+        ["Sap_IPF_chill"] = sap.Sap_IPF_chill,
+        ["Sap_IPF_strict"] = sap.Sap_IPF_strict,
+        ["Sap_IPF_calm"] = sap.Sap_IPF_calm,
+        ["Sap_IPF_paranoid"] = sap.Sap_IPF_paranoid,
+        ["Sap_SM_innocence"] = sap.Sap_SM_innocence,
+        ["Sap_SM_corruption"] = sap.Sap_SM_corruption,
+        ["Sap_SM_openminded"] = sap.Sap_SM_openminded,
+        ["Sap_SM_closeminded"] = sap.Sap_SM_closeminded,
+
+        ["Sap_WanderRange"] = sap.Sap_WanderRange,
+
+        --random information
+        ["Sap_Name"] = sap.Sap_Name,
+        ["Sap_Model"] = sap.Sap_Model,
+
+        ["Sap_PersonalityRandom"] = sap.Sap_PersonalityRandom,
+        ["Sap_NameRandom"] = sap.Sap_NameRandom,
+        ["Sap_ModelRandom"] = sap.Sap_ModelRandom,
+        ["TTSnameRandom"] = sap.TTSnameRandom,
+
+        ["SpawnDone"] = sap.SpawnDone,
+        ["SapSpawnOverride"] = sap.SapSpawnOverride,
+        ["ColorOverride"] = sap.ColorOverride,
+        ["MatOverride"] = sap.MatOverride,
+        ["Jumping"] = sap.Jumping,
+        ["Stepsounds"] = sap.Stepsounds,
+        ["Stress"] = sap.Stress,
+        ["EmotionEnabled"] = sap.EmotionEnabled,
+
+        ["Spawning"] = sap.Spawning,
+        ["ChatSent"] = sap.ChatSent,
+        ["SAPCached"] = sap.SAPCached,
+
+        ["NPCMenuSpawned"] = sap.NPCMenuSpawned,
+
+        --tts and dialog
+        ["TTSspeaking"] = sap.TTSspeaking,
+        ["TTStruespeak"] = sap.TTStruespeak,
+        ["TTStimefornext"] = sap.TTStimefornext,
+        ["TTSname"] = sap.TTSname,
+        ["SapSoundboard"] = sap.SapSoundboard,
+        ["SapSoundboardOn"] = sap.SapSoundboardOn,
+        ["SapSoundboardMode"] = sap.SapSoundboardMode,
+        ["SapSoundboardRate"] = sap.SapSoundboardRate,
+        ["SapSoundboardCurrent"] = sap.SapSoundboardCurrent,
+        ["SapSoundboardMusic"] = sap.SapSoundboardMusic,
+        ["DialogSet"] = sap.DialogSet,
+        ["TTSenabled"] = sap.TTSenabled,
+        ["TTStextform"] = sap.TTStextform,
+        ["SapCacheSay"] = sap.SapCacheSay,
+        ["SapCacheSaySubject"] = sap.SapCacheSaySubject,
+        ["SapCacheSaySubjectInfo"] = sap.SapCacheSaySubjectInfo,
+        ["SapCacheSayTime"] = sap.SapCacheSayTime,
+
+        --combat
+        ["EquipWeapons"] = sap.EquipWeapons,
+        ["EquipWeapons"] = sap.AdminWeapons,
+
+        --"fun"
+        ["EquipWeapons"] = sap.Fun_AggressionMode,
+        ["Fun_ActivePathingMode"] = sap.Fun_ActivePathingMode,
+        ["Fun_IgnoreDoor"] = sap.Fun_IgnoreDoor,
+        ["Fun_NoAntistuck"] = sap.Fun_NoAntistuck,
+        ["Fun_NoJump"] = sap.Fun_NoJump,
+        ["Fun_Votekick"] = sap.Fun_Votekick,
+
+        --actions
+        ["ActionOverridesActive"] = sap.ActionOverridesActive,
+
+        --building relating stuff
+        ["CanSpawnProps"] = sap.CanSpawnProps,
+        ["CanSpawnLargeProps"] = sap.CanSpawnLargeProps,
+        ["CanBuildWithProps"] = sap.CanBuildWithProps,
+        ["BuildLearnFromObservation"] = sap.BuildLearnFromObservation,
+        ["BuildFormComprehension"] = sap.BuildFormComprehension,
+        ["CurrentPropDataset"] = sap.CurrentPropDataset,
+        ["SapPropObserveRange"] = sap.SapPropObserveRange,
+        ["SapPropLimit"] = sap.SapPropLimit,
+
+        --ai net stuff / llm groq stuff
+        ["UseAIServer"] = sap.UseAIServer,
+        ["AIServerPersonalityBase"] = sap.AIServerPersonalityBase,
+
+        --other
+        ["OpinionOnEnts"] = sap.OpinionOnEnts,
+        ["MaxHealth"] = sap:GetMaxHealth()
+    }
+    return(tableDataTemp)
+end
+
+function DataToSapBot(dataTable,sap,ignoreCertainValues) --turns a table of raw data into the data on a sap bot entity
+    sap.Sap_id = dataTable.Sap_id
+    sap.Sap_DefaultTrustFactor = dataTable.Sap_DefaultTrustFactor
+
+    if ((dataTable.Sap_PersonalityRandom && ignoreCertainValues) || !dataTable.Sap_PersonalityRandom) then
+        sap.Sap_Intelligence = dataTable.Sap_Intelligence
+        sap.Sap_Chaos = dataTable.Sap_Chaos
+        sap.Sap_IPF_chill = dataTable.Sap_IPF_chill
+        sap.Sap_IPF_strict = dataTable.Sap_IPF_strict
+        sap.Sap_IPF_calm = dataTable.Sap_IPF_calm
+        sap.Sap_IPF_paranoid = dataTable.Sap_IPF_paranoid
+        sap.Sap_SM_innocence = dataTable.Sap_SM_innocence
+        sap.Sap_SM_corruption = dataTable.Sap_SM_corruption
+        sap.Sap_SM_openminded = dataTable.Sap_SM_openminded
+        sap.Sap_SM_closeminded = dataTable.Sap_SM_closeminded
+    else
+        sap.Sap_Intelligence = math.Rand(10, 90)
+        sap.Sap_Chaos = math.Rand(1, 10)
+        local ipfY = math.Rand(0, 1)
+        local ipfX = math.Rand(0, 1)
+        local smY = math.Rand(0, 1)
+        local smX = math.Rand(0, 1)
+        sap.Sap_IPF_chill = 1 - ipfX
+        sap.Sap_IPF_strict = ipfX
+        sap.Sap_IPF_calm = 1 - ipfY
+        sap.Sap_IPF_paranoid = ipfY
+        sap.Sap_SM_innocence = 1 - smX
+        sap.Sap_SM_corruption = smX
+        sap.Sap_SM_openminded = smY
+        sap.Sap_SM_closeminded = 1 - smY
+    end
+    
+    sap.Sap_WanderRange = dataTable.Sap_WanderRange
+
+    sap.Sap_PersonalityRandom = dataTable.Sap_PersonalityRandom
+    sap.Sap_NameRandom = dataTable.Sap_NameRandom
+    sap.Sap_ModelRandom = dataTable.Sap_ModelRandom
+    sap.TTSnameRandom = dataTable.TTSnameRandom
+
+    if ((dataTable.Sap_NameRandom && ignoreCertainValues) || !dataTable.Sap_NameRandom) then
+        sap.Sap_Name = dataTable.Sap_Name
+    else
+        sap.Sap_Name = GenerateName()
+    end
+    if ((dataTable.Sap_ModelRandom && ignoreCertainValues) || !dataTable.Sap_ModelRandom) then
+        sap.Sap_Model = dataTable.Sap_Model
+    else
+        sap.Sap_Model = "random"
+    end
+
+    sap.SpawnDone = dataTable.SpawnDone
+    sap.SapSpawnOverride = dataTable.SapSpawnOverride
+    sap.ColorOverride = dataTable.ColorOverride
+    sap.MatOverride = dataTable.MatOverride
+
+    sap.Jumping = dataTable.Jumping
+    sap.Stepsounds = dataTable.Stepsounds
+    sap.Stress = dataTable.Stress
+    sap.EmotionEnabled = dataTable.EmotionEnabled
+
+    sap.Spawning = dataTable.Spawning
+    sap.ChatSent = dataTable.ChatSent
+    sap.SAPCached = dataTable.SAPCached
+
+    sap.NPCMenuSpawned = dataTable.NPCMenuSpawned
+
+    sap.TTSspeaking = dataTable.TTSspeaking
+    sap.TTStruespeak = dataTable.TTStruespeak
+    sap.TTStimefornext = dataTable.TTStimefornext
+    if ((dataTable.TTSnameRandom && ignoreCertainValues) || !dataTable.TTSnameRandom) then
+        sap.TTSname = dataTable.TTSname
+    else
+        local g,fold = file.Find("sound/sapbots/tts/*", "GAME")
+        for g,v in RandomPairs(fold) do
+            sap.TTSname = v
+            break
+        end
+    end
+    sap.SapSoundboard = dataTable.SapSoundboard
+    sap.SapSoundboardOn = dataTable.SapSoundboardOn
+    sap.SapSoundboardMode = dataTable.SapSoundboardMode
+    sap.SapSoundboardRate = dataTable.SapSoundboardRate
+    sap.SapSoundboardCurrent = dataTable.SapSoundboardCurrent
+    sap.SapSoundboardMusic = dataTable.SapSoundboardMusic
+    sap.DialogSet = dataTable.DialogSet
+    sap.TTSenabled = dataTable.TTSenabled
+    sap.TTStextform = dataTable.TTStextform
+    sap.SapCacheSay = dataTable.SapCacheSay
+    sap.SapCacheSaySubject = dataTable.SapCacheSaySubject
+    sap.SapCacheSaySubjectInfo = dataTable.SapCacheSaySubjectInfo
+    sap.SapCacheSayTime = dataTable.SapCacheSayTime
+
+    sap.EquipWeapons = dataTable.EquipWeapons
+    sap.AdminWeapons = dataTable.AdminWeapons
+
+    sap.Fun_AggressionMode = dataTable.Fun_AggressionMode
+    sap.Fun_ActivePathingMode = dataTable.Fun_ActivePathingMode
+    sap.Fun_IgnoreDoor = dataTable.Fun_IgnoreDoor
+    sap.Fun_NoAntistuck = dataTable.Fun_NoAntistuck
+    sap.Fun_NoJump = dataTable.Fun_NoJump
+    sap.Fun_Votekick = dataTable.Fun_Votekick
+
+    sap.ActionOverridesActive = dataTable.ActionOverridesActive
+
+    sap.CanSpawnProps = dataTable.CanSpawnProps
+    sap.CanSpawnLargeProps = dataTable.CanSpawnLargeProps
+    sap.CanBuildWithProps = dataTable.CanBuildWithProps
+    sap.BuildLearnFromObservation = dataTable.BuildLearnFromObservation
+    sap.BuildFormComprehension = dataTable.BuildFormComprehension
+    sap.CurrentPropDataset = dataTable.CurrentPropDataset
+    sap.SapPropObserveRange = dataTable.SapPropObserveRange
+    sap.SapPropLimit = dataTable.SapPropLimit
+
+    sap.UseAIServer = dataTable.UseAIServer
+    sap.AIServerPersonalityBase = dataTable.AIServerPersonalityBase
+
+    sap.OpinionOnEnts = dataTable.OpinionOnEnts
+end
+
 function verifyJsonFile(nameString,default) --create and/or get data from data json, not datasets from datasets folder
     if !(file.Exists('sapbot','DATA')) then file.CreateDir('sapbot') end --confirm the dir
 
