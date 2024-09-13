@@ -592,9 +592,9 @@ function TOOL.BuildCPanel(panel)
     teamPanel:SetParent(panel)
     teamPanel:SetSize(200, 100)
     panel:AddItem(teamPanel)
-
+    --GetConVar("sapbotcreator_sapipfcalm"):SetFloat(1 - IPFSlider:GetSlideY())
     local teamBox = vgui.Create( "DComboBox", teamPanel)
-    teamBox:SetConvar("sapteam")
+    --teamBox:SetConvar("sapbotcreator_sapteam")
     teamBox:SetSortItems(false)
     teamBox:SetPos(10, 10)
     teamBox:SetSize(200, 20)
@@ -656,18 +656,18 @@ function TOOL.BuildCPanel(panel)
             teamColorBox:SetColor(col)
             teamColor_picker:SetRGB(col)
             lastTeamColor = col
-            GetConVar("sapteamcolor_r"):SetFloat(col.r,255)
-            GetConVar("sapteamcolor_g"):SetFloat(col.g,255)
-            GetConVar("sapteamcolor_b"):SetFloat(col.b,255)
+            GetConVar("sapbotcreator_sapteamcolor_r"):SetFloat(col.r,255)
+            GetConVar("sapbotcreator_sapteamcolor_g"):SetFloat(col.g,255)
+            GetConVar("sapbotcreator_sapteamcolor_b"):SetFloat(col.b,255)
         end
     end
 
     local forceSelectTeam = "none"
     teamBox.OnSelect = function(self, index, value)
         forceSelectTeam = value
-        GetConVar("sapteamforceagro"):SetBool(SapTeams[value].agro)
-        GetConVar("sapteamteamkill"):SetBool(SapTeams[value].teamkill)
-        GetConVar("sapteam"):SetString(value)
+        GetConVar("sapbotcreator_sapteamforceagro"):SetBool(SapTeams[value].agro)
+        GetConVar("sapbotcreator_sapteamteamkill"):SetBool(SapTeams[value].teamkill)
+        GetConVar("sapbotcreator_sapteam"):SetString(value)
         if (checkBoxAggress != nil) then
             checkBoxAggress:SetValue(SapTeams[value].agro)
             checkBoxTeamKill:SetValue(SapTeams[value].teamkill)
@@ -682,13 +682,13 @@ function TOOL.BuildCPanel(panel)
         --print(valueTex)
         if (valueTex == "none" && forceSelectTeam == "none") then
             isNoneTeam = true
-            GetConVar("sapteamforceagro"):SetBool(false)
-            GetConVar("sapteamteamkill"):SetBool(true)
-            GetConVar("sapteam"):SetString("none")
+            GetConVar("sapbotcreator_sapteamforceagro"):SetBool(false)
+            GetConVar("sapbotcreator_sapteamteamkill"):SetBool(true)
+            GetConVar("sapbotcreator_sapteam"):SetString("none")
             --print(GetConVar("sapbotcreator_sapteamteamkill"):GetBool())
             if (checkBoxAggress != nil) then
-                checkBoxAggress:SetValue(GetConVar("sapteamforceagro"):GetBool())
-                checkBoxTeamKill:SetValue(GetConVar("sapteamteamkill"):GetBool())
+                checkBoxAggress:SetValue(GetConVar("sapbotcreator_sapteamforceagro"):GetBool())
+                checkBoxTeamKill:SetValue(GetConVar("sapbotcreator_sapteamteamkill"):GetBool())
             end
             if (teamColorBox != nil) then
                 setTeamColorVisuals(Color(255,255,255))
@@ -702,7 +702,7 @@ function TOOL.BuildCPanel(panel)
                         if (lastTeamColor == Color(255,255,255)) then
                             if (SapTeams[valueTex].color != Color(255,255,255)) then
                                 setTeamColorVisuals(SapTeams[valueTex].color)
-                                GetConVar("sapteam"):SetString(valueTex)
+                                --GetConVar("sapbotcreator_sapteam"):SetString(valueTex)
                             end
                         end
                     end
@@ -727,12 +727,12 @@ function TOOL.BuildCPanel(panel)
             -- Add the new entry to the combo box
             teamBox:AddChoice(text)
             SapTeams[text] = {
-                ["agro"] = GetConVar("sapteamforceagro"):GetBool(),
-                ["teamkill"] = GetConVar("sapteamteamkill"):GetBool(),
+                ["agro"] = GetConVar("sapbotcreator_sapteamforceagro"):GetBool(),
+                ["teamkill"] = GetConVar("sapbotcreator_sapteamteamkill"):GetBool(),
                 ["color"] = Color(
-                    GetConVar("sapteamcolor_r"):GetFloat(),
-                    GetConVar("sapteamcolor_g"):GetFloat(),
-                    GetConVar("sapteamcolor_b"):GetFloat()
+                    GetConVar("sapbotcreator_sapteamcolor_r"):GetFloat(),
+                    GetConVar("sapbotcreator_sapteamcolor_g"):GetFloat(),
+                    GetConVar("sapbotcreator_sapteamcolor_b"):GetFloat()
                 )
             }
             SapTeamDataWrite()
@@ -758,8 +758,8 @@ function TOOL.BuildCPanel(panel)
     --local teamDataDropdownInside = vgui.Create("DPanel",teamDForm)
     --teamPanel:SetBackgroundColor(Color(185,185,185))
 
-    checkBoxAggress = teamDForm:CheckBox('Force Aggression To Other Teams', 'sapteamforceagro')
-    checkBoxTeamKill = teamDForm:CheckBox('Can Team kill', 'sapteamteamkill')
+    checkBoxAggress = teamDForm:CheckBox('Force Aggression To Other Teams', 'sapbotcreator_sapteamforceagro')
+    checkBoxTeamKill = teamDForm:CheckBox('Can Team kill', 'sapbotcreator_sapteamteamkill')
     teamDForm:Help("S.A.P Bot Team theme color")
     --background panel
     BGPanel = vgui.Create("DPanel",teamDForm)

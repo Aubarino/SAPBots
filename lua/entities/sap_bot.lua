@@ -154,6 +154,7 @@ ENT.CurrentAnimAct = 0
 ENT.UseAIServer = true --experimental
 ENT.AIServerPersonalityBase = "modern gamer" --defines how the AINet option will treat their personality data
 
+ENT.Respawned = false --set when they have been respawned with values not changed
 ENT.Team = "none"
 ENT.TeamColor = nil
 ENT.TeamFriendlyFire = true
@@ -423,6 +424,13 @@ function ENT:KeyPressed(key)
     return(true)
 end
 
+function ENT:SetWeaponColor(col)
+end
+
+function ENT:CheckLimit(stringIn) --add more complexity when i revise building more
+    return(true)
+end
+
 function ENT:ChatPrint(message)
 end
 
@@ -543,10 +551,9 @@ end
 --true first boot 'n initialization
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 function ENT:RefreshTeamData()
-    print("TEAM IS : "..self.Team)
-    print("TEAM VALUES ARE AT : "..tostring(self.TeamFriendlyFire))
     if (SERVER) then
         self:SetNW2String("Sap_Team", self.Team)
+        self:SetNW2Bool("Sap_Respawned", self.Respawned)
         if (self.TeamColor == nil) then
             self:SetNW2Float("Sap_Team_R", -1)
         else
@@ -595,7 +602,11 @@ function ENT:Initialize()
             else
                 toprint = "S.A.P Bot ("..self:GetNW2String("Sap_Name")..")"
             end
-            chat:AddText(Color(math.Clamp(150 + (self:GetSapColor().r * 2.428571428571429),0,255),self:GetSapColor().g,math.Clamp(150 + (self:GetSapColor().b * 2.428571428571429),0,255),255),toprint.." has joined the game")
+            if (!self:GetNW2Bool("Sap_Respawned", false)) then
+                chat:AddText(Color(math.Clamp(150 + (self:GetSapColor().r * 2.428571428571429),0,255),self:GetSapColor().g,math.Clamp(150 + (self:GetSapColor().b * 2.428571428571429),0,255),255),toprint.." has joined the game")
+            else
+                chat:AddText(Color(math.Clamp(150 + (self:GetSapColor().r * 2.428571428571429),0,255),self:GetSapColor().g,math.Clamp(150 + (self:GetSapColor().b * 2.428571428571429),0,255),255),toprint.." respawned")
+            end
         end
     end
     self:SetMaterial("models/weapons/v_slam/new light2")
@@ -768,13 +779,13 @@ function ENT:ConstructInitOpinion(inputentity)
 end
 
 function ENT:GetCanAttackConditions(ent)
-    if (ent:GetClass() == "sap_bot") then
-        print("other team: "..ent.Team.."compared to my team: "..self.Team)
-        print("agro other teams at: "..tostring(self.TeamAgroOthers))
+    if (ent != nil && self:Alive()) then
+        return(self.Fun_AggressionMode ||
+        (self.TeamAgroOthers && ((ent.Team != self.Team) || ent.Team == nil))
+        || (self.TeamFriendlyFire && (ent.Team == self.Team) && self.TeamAgroOthers))
+    else
+        return(false)
     end
-    return(self.Fun_AggressionMode ||
-    (self.TeamAgroOthers && ((ent.Team != self.Team) || ent.Team == nil))
-    || (self.TeamFriendlyFire && (ent.Team == self.Team) && self.TeamAgroOthers))
 end
 
 -- -- -- -- -- -- -- -- -- -- --
@@ -1519,7 +1530,7 @@ function ENT:EnemyReaction()
                     self.AttackMode = 0
                     local AltDelay = CurTime() + math.Rand(0.5,10)
                     while ((path:IsValid() and math.abs(self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and TargetInRange and (self.BadNearEnt != nil) 
-                        and !(entitytarget == nil or entitytarget == NULL or !entitytarget:IsValid()) && ((self.TeamFriendlyFire && (entitytarget.Team == self.Team)) || (entitytarget.Team != self.Team)) && !entitytarget.Dead) do
+                        and !(entitytarget == nil or entitytarget == NULL or !entitytarget:IsValid()) && ((self.TeamFriendlyFire && (entitytarget.Team == self.Team)) || (entitytarget.Team != self.Team)) && !entitytarget.Dead && (entitytarget:Health() > 0)) do
                         local comlogSimple = ((self.Sap_SM_corruption > 0.75) and (self.Stress > 3)) --attacking comprehension
                         local comlogComple = ((self.Sap_SM_corruption > 0.5) and (self.Sap_SM_corruption < 0.75) and (self.Stress < 3))
 
@@ -1633,6 +1644,10 @@ function ENT:EnemyReaction()
 
                         if (self.Fun_ActivePathingMode) then
                             self:FunActivePathing()
+                        end
+
+                        if ((entitytarget:Health() <= 0)) then
+                            break
                         end
                         coroutine.yield()
                     end

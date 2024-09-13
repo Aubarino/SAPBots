@@ -23,6 +23,8 @@ local sapspawnertableConvar = CreateClientConVar("sapbotspawnercreator_sapspawne
 local sapspawnwithrandomConvar = CreateClientConVar("sapbotspawnercreator_sapspawnwithrandom", "0")
 local sapspawnneweachtimeConvar = CreateClientConVar("sapbotspawnercreator_sapspawnneweachtime", "1")
 
+local spawnerTable = nil
+local spawnerFullTable = nil
 function TOOL:DrawToolScreen( width, height )
     --cool background
     local sapColor = Color(0,255,0)
@@ -42,7 +44,7 @@ function TOOL:DrawToolScreen( width, height )
 
     local CoolTx = CoolSapTextArt() --moved to util
 	draw.SimpleText(CoolTx.." S.A.P Spawnpoint "..CoolTx, "DermaLarge", width / 2, 32, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    local spawnerTable = self:GetClientInfo("sapspawnertable")
+    spawnerTable = self:GetClientInfo("sapspawnertable")
     local spawnwithrandom = tobool(self:GetClientNumber("sapspawnwithrandom", 0))
     local sapspawnneweachtime = tobool(self:GetClientNumber("sapspawnneweachtime", 0))
     if (spawnwithrandom) then
@@ -51,7 +53,7 @@ function TOOL:DrawToolScreen( width, height )
         draw.SimpleText("Values static", "DermaLarge", width / 2, 72, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
     if (spawnerTable != nil && spawnerTable != "") then
-        local spawnerFullTable = util.JSONToTable(spawnerTable)
+        spawnerFullTable = util.JSONToTable(spawnerTable)
         if (spawnerFullTable != nil) then
             draw.SimpleText("[S.A.P Data Linked]", "DermaLarge", width / 2, 130, sapColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             if (spawnerFullTable.Sap_NameRandom && spawnwithrandom) then
@@ -141,11 +143,19 @@ function TOOL:Think()
             local pos = User:GetNW2Vector("sapbotspawnercreator_pos",Vector(0,0,0))
             local tim = User:GetNW2Float("sapbotspawnercreator_time",0)
             local normal = User:GetNW2Vector("sapbotspawnercreator_nor",Vector(0,0,0))
+            local col = nil
+            if (spawnerFullTable != nil) then
+                col = spawnerFullTable.TeamColor
+            end
+            if (col == nil) then --lazy fallback
+                col = SAPBOTCOLOR
+            end
+
             local scaling = 64
     
             if (normal != nil && normal != Vector(0,0,0) && tim >= CurTime() - 0.1) then
                 if (normal.z >= 0.5) then
-                    render.DrawQuadEasy(pos + (normal * (math.sin(CurTime() * 4) + 1) * 4), normal, scaling, scaling,SAPBOTCOLOR, 180)
+                    render.DrawQuadEasy(pos + (normal * (math.sin(CurTime() * 4) + 1) * 4), normal, scaling, scaling,col, 180)
 
                     local colorchanges = nil
                     local amt = 50
@@ -154,7 +164,7 @@ function TOOL:Think()
                     local funnyValue = (math.sin(CurTime() * 0.5) + 2) * 0.5
                     for i = 0,5,1 do 
                         smallering = (i / total)
-                        colorchanges = Color(math.Clamp(SAPBOTCOLOR.r + (i * amt),0,255),SAPBOTCOLOR.g + (i * amt),SAPBOTCOLOR.b + (i * amt),(1 - smallering) * 255)
+                        colorchanges = Color(math.Clamp(col.r + (i * amt),0,255),col.g + (i * amt),col.b + (i * amt),(1 - smallering) * 255)
                         scaling = ((1 - smallering) + 0.5) * 30
                         render.DrawQuadEasy(pos + (normal * (math.sin((CurTime() + (i * funnyValue)) * 4) + 1) * 4) + (normal * 40 * smallering), normal, scaling, scaling, colorchanges, 180)
                     end

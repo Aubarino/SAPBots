@@ -228,6 +228,8 @@ function DataToSapBot(dataTable,sap,ignoreCertainValues) --turns a table of raw 
     sap.TeamFriendlyFire = dataTable.TeamFriendlyFire
     sap.TeamAgroOthers = dataTable.TeamAgroOthers
     sap.TeamColor = dataTable.TeamColor
+
+    sap.Respawned = ignoreCertainValues
 end
 
 function verifyJsonFile(nameString,default) --create and/or get data from data json, not datasets from datasets folder
