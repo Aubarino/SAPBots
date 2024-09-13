@@ -67,10 +67,10 @@ function SapBotToData(sap) --turns a sap bot into a table of data
 
         --combat
         ["EquipWeapons"] = sap.EquipWeapons,
-        ["EquipWeapons"] = sap.AdminWeapons,
+        ["AdminWeapons"] = sap.AdminWeapons,
 
         --"fun"
-        ["EquipWeapons"] = sap.Fun_AggressionMode,
+        ["Fun_AggressionMode"] = sap.Fun_AggressionMode,
         ["Fun_ActivePathingMode"] = sap.Fun_ActivePathingMode,
         ["Fun_IgnoreDoor"] = sap.Fun_IgnoreDoor,
         ["Fun_NoAntistuck"] = sap.Fun_NoAntistuck,
@@ -96,7 +96,12 @@ function SapBotToData(sap) --turns a sap bot into a table of data
 
         --other
         ["OpinionOnEnts"] = sap.OpinionOnEnts,
-        ["MaxHealth"] = sap:GetMaxHealth()
+        ["MaxHealth"] = sap:GetMaxHealth(),
+        --teams
+        ["Team"] = sap.Team,
+        ["TeamFriendlyFire"] = sap.TeamFriendlyFire,
+        ["TeamAgroOthers"] = sap.TeamAgroOthers,
+        ["TeamColor"] = sap.TeamColor
     }
     return(tableDataTemp)
 end
@@ -218,6 +223,11 @@ function DataToSapBot(dataTable,sap,ignoreCertainValues) --turns a table of raw 
     sap.AIServerPersonalityBase = dataTable.AIServerPersonalityBase
 
     sap.OpinionOnEnts = dataTable.OpinionOnEnts
+
+    sap.Team = dataTable.Team
+    sap.TeamFriendlyFire = dataTable.TeamFriendlyFire
+    sap.TeamAgroOthers = dataTable.TeamAgroOthers
+    sap.TeamColor = dataTable.TeamColor
 end
 
 function verifyJsonFile(nameString,default) --create and/or get data from data json, not datasets from datasets folder

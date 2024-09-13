@@ -38,6 +38,7 @@ function ENT:Think()
                 sap:SetPos(self:GetPos())
                 sap.Sap_Name = self.SapDataTable.Sap_Name
                 sap.Sap_id = self.SapDataTable.Sap_id
+                DataToSapBot(self.SapDataTable,sap,self.ignoreCertainValues)
                 sap:Spawn()
                 _SAPBOTSSAPIDS[self.SapDataTable.Sap_id] = sap
                 DataToSapBot(self.SapDataTable,sap,self.ignoreCertainValues)

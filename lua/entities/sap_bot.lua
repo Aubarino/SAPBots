@@ -154,6 +154,11 @@ ENT.CurrentAnimAct = 0
 ENT.UseAIServer = true --experimental
 ENT.AIServerPersonalityBase = "modern gamer" --defines how the AINet option will treat their personality data
 
+ENT.Team = "none"
+ENT.TeamColor = nil
+ENT.TeamFriendlyFire = true
+ENT.TeamAgroOthers = false
+
 local switch = function(condition, results)
     local exists = results[condition] or results["default"]
     if type(exists) == "function" then
@@ -355,6 +360,10 @@ end
 function ENT:ConCommand()
 end
 
+function ENT:IsSolid()
+    return(true)
+end
+
 function ENT:SetRunSpeed(speed)
     self:SetWalkSpeed(speed)
 end
@@ -391,6 +400,10 @@ function ENT:Ban(minutes,kick)
 end
 
 function ENT:Crouching()
+    return(false)
+end
+
+function ENT:IsWeapon()
     return(false)
 end
 
@@ -434,6 +447,14 @@ function ENT:GetEnemy()
     return(self.BadNearEnt)
 end
 
+function ENT:GetSapColor() --gets the correct color data for either teamed or not
+    if (self.TeamColor == nil) then
+        return(SAPBOTCOLOR)
+    else
+        return(self.TeamColor)
+    end
+end
+
 function ENT:SetActiveWeapon(weapon)
     if (weapon != NULL and weapon != nil) then
         self:SelectWeapon(weapon.ClassName)
@@ -475,7 +496,7 @@ function ENT:SelectWeapon(className)
     end
 
     if (className == "weapon_sapphysgun") then
-        self.CurrentWeapon:SetColor(SAPBOTCOLOR)
+        self.CurrentWeapon:SetColor(self:GetSapColor())
     end
 end
 
@@ -521,6 +542,28 @@ end
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 --true first boot 'n initialization
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+function ENT:RefreshTeamData()
+    print("TEAM IS : "..self.Team)
+    print("TEAM VALUES ARE AT : "..tostring(self.TeamFriendlyFire))
+    if (SERVER) then
+        self:SetNW2String("Sap_Team", self.Team)
+        if (self.TeamColor == nil) then
+            self:SetNW2Float("Sap_Team_R", -1)
+        else
+            self:SetNW2Float("Sap_Team_R", self.TeamColor.r)
+            self:SetNW2Float("Sap_Team_G", self.TeamColor.g)
+            self:SetNW2Float("Sap_Team_B", self.TeamColor.b)
+        end
+    else
+        self.Team = self:GetNW2String("Sap_Team", "none")
+        if (self:GetNW2Float("Sap_Team_R", -1) == -1) then
+            self.TeamColor = nil
+        else
+            self.TeamColor = Color(self:GetNW2Float("Sap_Team_R", 255),self:GetNW2Float("Sap_Team_G", 255),self:GetNW2Float("Sap_Team_B", 255))
+        end
+    end
+end
+
 function ENT:Initialize()
     self.TTStimefornext = CurTime() + 0.1
     self.Spawning = true
@@ -531,6 +574,7 @@ function ENT:Initialize()
 
     if (SERVER) then
         self:SetNW2String("Sap_Name", self.Sap_Name)
+        self:RefreshTeamData()
         if (!_SapbotDG_DialogSetMainLoaded) then --load main dialog set if it isn't loaded
             GatherAllTTS()
             BuildDialogTreeSet("main",_SapbotDG_ToxicToEntity,_SapbotDG_LoveEntity,_SapbotDG_LikeEntity,_SapbotDG_DislikeEntity,_SapbotDG_HateEntity,_SapbotDG_ConversationNormal,_SapbotDG_IdleNormal)
@@ -542,19 +586,20 @@ function ENT:Initialize()
     if (CLIENT) then
         if (!self.SapSpawnOverride) then
             local toprint = ""
+            self:RefreshTeamData()
             if (self:GetNW2String("Sap_Name") == "") then
                 toprint = "S.A.P Bot"
                 if (table.Count(_SAPBOTS) < 3) then --first sap bot message warning thing
-                    chat:AddText(Color(0,0,0,255), "-={[ ", SAPBOTCOLOR, "S.A.P Bots are best spawned via the ", Color(255,255,255,255),"S.A.P Bot Creator tool", Color(0,0,0,255), " ]}=-")
+                    chat:AddText(Color(0,0,0,255), "-={[ ", self:GetSapColor(), "S.A.P Bots are best spawned via the ", Color(255,255,255,255),"S.A.P Bot Creator tool", Color(0,0,0,255), " ]}=-")
                 end
             else
                 toprint = "S.A.P Bot ("..self:GetNW2String("Sap_Name")..")"
             end
-            chat:AddText(Color(math.Clamp(150 + (SAPBOTCOLOR.r * 2.428571428571429),0,255),SAPBOTCOLOR.g,math.Clamp(150 + (SAPBOTCOLOR.b * 2.428571428571429),0,255),255),toprint.." has joined the game")
+            chat:AddText(Color(math.Clamp(150 + (self:GetSapColor().r * 2.428571428571429),0,255),self:GetSapColor().g,math.Clamp(150 + (self:GetSapColor().b * 2.428571428571429),0,255),255),toprint.." has joined the game")
         end
     end
     self:SetMaterial("models/weapons/v_slam/new light2")
-    self:SetColor(SAPBOTCOLOR)
+    self:SetColor(self:GetSapColor())
     self:SetModel("models/player/skeleton.mdl")
 
     if (self.Sap_id == nil || self.Sap_id == 0) then
@@ -722,6 +767,16 @@ function ENT:ConstructInitOpinion(inputentity)
     return(buildopinion)
 end
 
+function ENT:GetCanAttackConditions(ent)
+    if (ent:GetClass() == "sap_bot") then
+        print("other team: "..ent.Team.."compared to my team: "..self.Team)
+        print("agro other teams at: "..tostring(self.TeamAgroOthers))
+    end
+    return(self.Fun_AggressionMode ||
+    (self.TeamAgroOthers && ((ent.Team != self.Team) || ent.Team == nil))
+    || (self.TeamFriendlyFire && (ent.Team == self.Team) && self.TeamAgroOthers))
+end
+
 -- -- -- -- -- -- -- -- -- -- --
 --take damage and collision stuff
 -- -- -- -- -- -- -- -- -- -- --
@@ -733,7 +788,7 @@ function ENT:OnTakeDamage( dmginfo )
         local AttackerName = GetBestName(dmginfo:GetAttacker())
         if (SAPBOTDEBUG and dmginfo:GetAttacker() == nil or dmginfo:GetAttacker() == NULL) then print("S.A.P Attacker Not Found") end
         if (self.OpinionOnEnts[AttackerName] == nil) then
-            if (self.Fun_AggressionMode) then
+            if (self:GetCanAttackConditions(dmginfo:GetAttacker())) then
                 self.OpinionOnEnts[AttackerName] = {-99,CurTime()}
             else
                 self.OpinionOnEnts[AttackerName] = self:ConstructInitOpinion(dmginfo:GetAttacker()) --build init opinion of entity with no opinion
@@ -743,7 +798,11 @@ function ENT:OnTakeDamage( dmginfo )
             if (self.Dead) then
                 self.OpinionOnEnts[AttackerName] = (tempthingy)
             else
-                self.OpinionOnEnts[AttackerName] = {(tempthingy[1] - (((1 - self.Sap_IPF_paranoid) + (self.Sap_IPF_strict)) * (dmginfo:GetDamage() / 20))),CurTime()}
+                if (self:GetCanAttackConditions(dmginfo:GetAttacker())) then
+                    self.OpinionOnEnts[AttackerName] = {-99,CurTime()}
+                else
+                    self.OpinionOnEnts[AttackerName] = {(tempthingy[1] - (((1 - self.Sap_IPF_paranoid) + (self.Sap_IPF_strict)) * (dmginfo:GetDamage() / 20))),CurTime()}
+                end
             end
         end
 
@@ -882,19 +941,24 @@ function ENT:ScanEntities() --generally scans entity in a radius and does opinio
             -- self:PropDetected(v) --detected a prop
             if (self.OpinionOnEnts[FoundEntName] == nil or FoundEntName == " " or FoundEntName == "" or FoundEntName == ",") then
                 if (FoundEntName != nil and FoundEntName != " " and FoundEntName != "") then
-                    if (!v:IsWeapon() and v:IsSolid() and (v:IsNPC() or v:IsPlayer() or v:IsNextBot())) then
-                        if (self.Fun_AggressionMode) then
+                    if (!v:IsWeapon() && v:IsSolid() && (v:IsNPC() || v:IsPlayer() || v:IsNextBot())) then
+                        if (self:GetCanAttackConditions(v)) then
                             self.OpinionOnEnts[FoundEntName] = {-99,CurTime()}
                         else
                             self.OpinionOnEnts[FoundEntName] = self:ConstructInitOpinion(v)
                         end
                     else
-                            self.OpinionOnEnts[FoundEntName] = {self.Sap_DefaultTrustFactor,CurTime()}
+                        self.OpinionOnEnts[FoundEntName] = {self.Sap_DefaultTrustFactor,CurTime()}
                     end
                     if (SAPBOTDEBUG) then print("S.A.P Bot building opinion for "..FoundEntName) end
                 else
                 end
             else
+                if (!v:IsWeapon() && v:IsSolid() && (v:IsNPC() || v:IsPlayer() || v:IsNextBot())) then
+                    if (self:GetCanAttackConditions(v)) then
+                        self.OpinionOnEnts[FoundEntName] = {self.OpinionOnEnts[FoundEntName][1] - 1,CurTime()}
+                    end
+                end
                 if (self.OpinionOnEnts[FoundEntName][1] > mostgood) then
                     mostgood_ent = v
                     mostgood = self.OpinionOnEnts[FoundEntName][1]
@@ -945,7 +1009,7 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                     local sapname = v:GetNW2String("Sap_Name")
                     local saphealthperce = math.floor((v:GetNW2Float("Sap_Health") / v:GetNW2Float("Sap_HealthMax")) * 100)
                     local saphealthfivfiv = (saphealthperce * 2.55)
-                    local saphealthcolour = Color(SAPBOTCOLOR.r,saphealthfivfiv * SAPBOTCOLOR.g,SAPBOTCOLOR.b)
+                    local saphealthcolour = Color(v:GetSapColor().r,saphealthfivfiv * v:GetSapColor().g,v:GetSapColor().b)
                     local saphealthbossvo = Color(math.Clamp(saphealthcolour.r - 100,0,255),math.Clamp(saphealthcolour.g - 100,0,255),math.Clamp(saphealthcolour.b - 100,0,255))
                     
                     local posModelOffsetMin, posModelOffsetMax = v:GetCollisionBounds()
@@ -954,7 +1018,7 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                     if (Vector(renderpos.x,renderpos.y,0):Distance(Vector(scrw / 2,scrh / 2,0)) < (35000 / DistanceTo3D)) then
                         if (!SAPBOTHIDETEXT) then
                             draw.SimpleText(sapname, "HudSelectionText", renderpos.x + 1.5, renderpos.y + 1.5, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                            draw.SimpleText(sapname, "HudSelectionText", renderpos.x, renderpos.y, SAPBOTCOLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                            draw.SimpleText(sapname, "HudSelectionText", renderpos.x, renderpos.y, v:GetSapColor(), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                         end
 
                         if (!(v:GetNW2Float("Sap_HealthMax") > 500 or SAPBOTHIDETEXT)) then
@@ -978,7 +1042,7 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                         local lines = SplitToMultipleLines('"'..TTSText..'"',30)
                         for li,line in pairs(lines) do
                             draw.SimpleText(line, "DebugOverlay", ttstextpos.x + 1, ttstextpos.y + 1 + ((li - 1) * 10), Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                            draw.SimpleText(line, "DebugOverlay", ttstextpos.x, ttstextpos.y + ((li - 1) * 10), SAPBOTCOLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                            draw.SimpleText(line, "DebugOverlay", ttstextpos.x, ttstextpos.y + ((li - 1) * 10), v:GetSapColor(), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                         end
                     end
                 end
@@ -987,7 +1051,7 @@ hook.Add( "HUDPaint", "CoolSAPHoverDrawHook", function()
                     local renderpos = Vector(rawrenderpos.x,rawrenderpos.y,rawrenderpos.z + (posModelOffsetMax.z * 0.88))
                     renderpos = renderpos:ToScreen()
                     draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x + 2, renderpos.y + 2, Color( 0, 0, 0 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-                    draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x, renderpos.y, Color(math.Clamp(SAPBOTCOLOR.r + 79,0,255), math.Clamp(SAPBOTCOLOR.g - 8,0,255), math.Clamp(SAPBOTCOLOR.b + 84,0,255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+                    draw.SimpleText("S.A.P ("..k..")", "DebugOverlay", renderpos.x, renderpos.y, Color(math.Clamp(v:GetSapColor().r + 79,0,255), math.Clamp(v:GetSapColor().g - 8,0,255), math.Clamp(v:GetSapColor().b + 84,0,255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
                 end
             end
         end
@@ -1428,148 +1492,151 @@ function ENT:EnemyReaction()
                 if (SAPBOTDEBUG) then print("S.A.P Bot running from ent is nil, ??") end
 
             else
-                local isalready = self.Walking
-                if (SAPBOTDEBUG) then print("S.A.P Bot Reacting low opinion of "..entitytarget:GetName()) end
+                if ((self.TeamFriendlyFire && (entitytarget.Team == self.Team)) || (entitytarget.Team != self.Team)) then --skip stuff cause cannot friendly fire?
+                    local isalready = self.Walking
+                    if (SAPBOTDEBUG) then print("S.A.P Bot Reacting low opinion of "..GetBestName(entitytarget)) end
 
-                local options = {}
-                local path = Path( "Follow" )
-                local maxrange = 512
-                local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
-                local posgoal = self:GetPos() + posgoaladditi
-                path:SetMinLookAheadDistance( options.lookahead or 300 )
-                path:SetGoalTolerance( options.tolerance or 20 )
-                path:Compute(self, posgoal)
-                self.LastTargetPos = posgoal
-        
-                --if ( !path:IsValid() ) then return "fuck" end
-        
-                if (!isalready) then
-                    self:StartActivity( HTgetAnimRun(self.CurWeaponHT) )
-                    self.Walking = true
-                end
-                self.loco:SetDesiredSpeed( 400 )
-                self.loco:SetAcceleration(800) --run drifting gotta make sense lol
-                local TargetInRange = self:ScanEntities()
-
-                self.AttackMode = 0
-                local AltDelay = CurTime() + math.Rand(0.5,10)
-                while ((path:IsValid() and math.abs(self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and TargetInRange and (self.BadNearEnt != nil) 
-                    and !(entitytarget == nil or entitytarget == NULL or !entitytarget:IsValid())) do
-                    local comlogSimple = ((self.Sap_SM_corruption > 0.75) and (self.Stress > 3)) --attacking comprehension
-                    local comlogComple = ((self.Sap_SM_corruption > 0.5) and (self.Sap_SM_corruption < 0.75) and (self.Stress < 3))
-
-                    self.IsAttacking = (comlogSimple or comlogComple and self.EquipWeapons) --outcome attacking comprehension
-
-                    if (self.Stress < 10) then
-                    self.Stress = self.Stress + ((1 - self.Sap_IPF_paranoid) * 0.01 + (self.Sap_IPF_strict * 0.01)) -- stress gain
+                    local options = {}
+                    local path = Path( "Follow" )
+                    local maxrange = 512
+                    local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
+                    local posgoal = self:GetPos() + posgoaladditi
+                    path:SetMinLookAheadDistance( options.lookahead or 300 )
+                    path:SetGoalTolerance( options.tolerance or 20 )
+                    path:Compute(self, posgoal)
+                    self.LastTargetPos = posgoal
+            
+                    --if ( !path:IsValid() ) then return "fuck" end
+            
+                    if (!isalready) then
+                        self:StartActivity( HTgetAnimRun(self.CurWeaponHT) )
+                        self.Walking = true
                     end
-                    if ((self.IsAttacking or self.Fun_AggressionMode) and self.CurrentWeapon != nil and self.CurrentWeapon != NULL and IsValid(entitytarget)) then --attacking code
-                        local wep = self.CurrentWeapon
-                        local targetpos = entitytarget:GetPos()
-                        local eyetrace = self:GetEyeTrace()
-                        local attackrange = 200
-                        local holdtypeforat = wep:GetHoldType()
-                        if (holdtypeforat == "melee" or holdtypeforat == "melee2" or holdtypeforat == "knife" or holdtypeforat == "normal") then
-                            attackrange = 16
-                            --print("is melee range")
-                        end
+                    self.loco:SetDesiredSpeed( 400 )
+                    self.loco:SetAcceleration(800) --run drifting gotta make sense lol
+                    local TargetInRange = self:ScanEntities()
 
-                        if ((math.abs(self:GetPos():Distance(targetpos)) > attackrange) or eyetrace["HitWorld"]) then --follow code
-                            if (self.AttackMode != 1 and self.AttackMode != 2) then
-                                self.AttackMode = 1
-                                path:Compute(self, targetpos)
-                                self.LastTargetPos = targetpos
-                            end
-                        else
-                            if (self.AttackMode == 1 or self.AttackMode == 2) then
-                                self.AttackMode = 0
-                            end
-                        end
+                    self.AttackMode = 0
+                    local AltDelay = CurTime() + math.Rand(0.5,10)
+                    while ((path:IsValid() and math.abs(self:GetPos():Distance(posgoal)) > 16) || (self.Fun_ActivePathingMode && self.Walking) and TargetInRange and (self.BadNearEnt != nil) 
+                        and !(entitytarget == nil or entitytarget == NULL or !entitytarget:IsValid()) && ((self.TeamFriendlyFire && (entitytarget.Team == self.Team)) || (entitytarget.Team != self.Team)) && !entitytarget.Dead) do
+                        local comlogSimple = ((self.Sap_SM_corruption > 0.75) and (self.Stress > 3)) --attacking comprehension
+                        local comlogComple = ((self.Sap_SM_corruption > 0.5) and (self.Sap_SM_corruption < 0.75) and (self.Stress < 3))
 
-                        if (eyetrace["HitWorld"] or (math.abs(self:GetPos():Distance(targetpos)) > 1024)) then
-                            TargetInRange = self:ScanEntities()
-                        elseif(eyetrace["Entity"] != NULL) then
-                            if (wep:GetNextPrimaryFire() + math.Rand(0.01,0.1) < CurTime()) then
-                                if (wep:Clip1() < 1) then
-                                    wep:SetClip1(wep:GetMaxClip1())
-                                    wep:Reload()
-                                    --wep:DefaultReload(ACT_RELOAD)
+                        self.IsAttacking = (comlogSimple or comlogComple and self.EquipWeapons) --outcome attacking comprehension
+
+                        if (self.Stress < 10) then
+                        self.Stress = self.Stress + ((1 - self.Sap_IPF_paranoid) * 0.01 + (self.Sap_IPF_strict * 0.01)) -- stress gain
+                        end
+                        if ((self.IsAttacking || self:GetCanAttackConditions(entitytarget))
+                            and self.CurrentWeapon != nil and self.CurrentWeapon != NULL and IsValid(entitytarget)) then --attacking code
+                            local wep = self.CurrentWeapon
+                            local targetpos = entitytarget:GetPos()
+                            local eyetrace = self:GetEyeTrace()
+                            local attackrange = 200
+                            local holdtypeforat = wep:GetHoldType()
+                            if (holdtypeforat == "melee" or holdtypeforat == "melee2" or holdtypeforat == "knife" or holdtypeforat == "normal") then
+                                attackrange = 16
+                                --print("is melee range")
+                            end
+
+                            if ((math.abs(self:GetPos():Distance(targetpos)) > attackrange) or eyetrace["HitWorld"]) then --follow code
+                                if (self.AttackMode != 1 and self.AttackMode != 2) then
+                                    self.AttackMode = 1
+                                    path:Compute(self, targetpos)
+                                    self.LastTargetPos = targetpos
+                                end
+                            else
+                                if (self.AttackMode == 1 or self.AttackMode == 2) then
+                                    self.AttackMode = 0
+                                end
+                            end
+
+                            if (eyetrace["HitWorld"] or (math.abs(self:GetPos():Distance(targetpos)) > 1024)) then
+                                TargetInRange = self:ScanEntities()
+                            elseif(eyetrace["Entity"] != NULL) then
+                                if (wep:GetNextPrimaryFire() + math.Rand(0.01,0.1) < CurTime()) then
+                                    if (wep:Clip1() < 1) then
+                                        wep:SetClip1(wep:GetMaxClip1())
+                                        wep:Reload()
+                                        --wep:DefaultReload(ACT_RELOAD)
+                                    end
+
+                                    local suck, err = pcall(wep.PrimaryAttack, wep)
+                                    if (!suck) then
+                                        table.insert(_Sapbot_WeaponBlacklist,wep.ClassName)
+                                        self:EquipRandomWeapon()
+                                        if (SAPBOTDEBUG) then
+                                            print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
+                                            print('"'..err..'"')
+                                            print("")
+                                        end
+                                    end
                                 end
 
-                                local suck, err = pcall(wep.PrimaryAttack, wep)
-                                if (!suck) then
-                                    table.insert(_Sapbot_WeaponBlacklist,wep.ClassName)
-                                    self:EquipRandomWeapon()
-                                    if (SAPBOTDEBUG) then
-                                        print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
-                                        print('"'..err..'"')
-                                        print("")
+                                if (wep:GetNextSecondaryFire() + math.Rand(0.01,0.1) < CurTime() and AltDelay < CurTime()) then
+                                    AltDelay = CurTime() + math.Rand(0.5,10)
+                                    if (wep:Clip2() < 1) then
+                                        wep:SetClip2(wep:GetMaxClip2())
+                                    end
+
+                                    local suck, err = pcall(wep.SecondaryAttack, wep)
+                                    if (!suck) then
+                                        table.insert(_Sapbot_WeaponBlacklist,wep.ClassName)
+                                        self:EquipRandomWeapon()
+                                        if (SAPBOTDEBUG) then
+                                            print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
+                                            print('"'..err..'"')
+                                            print("")
+                                        end
                                     end
                                 end
                             end
 
-                            if (wep:GetNextSecondaryFire() + math.Rand(0.01,0.1) < CurTime() and AltDelay < CurTime()) then
-                                AltDelay = CurTime() + math.Rand(0.5,10)
-                                if (wep:Clip2() < 1) then
-                                    wep:SetClip2(wep:GetMaxClip2())
-                                end
+                            -- if (!eyetrace["HitWorld"]) then
+                            --     local wep = self.CurrentWeapon
+                            --     if (wep:GetNextPrimaryFire() > CurTime()) then
+                            --         wep:SetClip1(wep:GetMaxClip1())
+                            --         wep:PrimaryAttack()
+                            --     end
+                            -- end
 
-                                local suck, err = pcall(wep.SecondaryAttack, wep)
-                                if (!suck) then
-                                    table.insert(_Sapbot_WeaponBlacklist,wep.ClassName)
-                                    self:EquipRandomWeapon()
-                                    if (SAPBOTDEBUG) then
-                                        print("S.A.P Bot Weapon "..wep.ClassName.." blacklisted due to autodetected issues :")
-                                        print('"'..err..'"')
-                                        print("")
-                                    end
+                            if (self.AttackMode == 1 or self.AttackMode == 2) then --follow moving
+                                if (path:GetAge() > 0.5) then
+                                    path:Compute(self, targetpos)
+                                    self.LastTargetPos = targetpos
+                                    self:ActionProcess() --do sap action stuff
                                 end
+                                path:Update(self)
+                                self:LocoInterjection(path)
                             end
-                        end
 
-                        -- if (!eyetrace["HitWorld"]) then
-                        --     local wep = self.CurrentWeapon
-                        --     if (wep:GetNextPrimaryFire() > CurTime()) then
-                        --         wep:SetClip1(wep:GetMaxClip1())
-                        --         wep:PrimaryAttack()
-                        --     end
-                        -- end
-
-                        if (self.AttackMode == 1 or self.AttackMode == 2) then --follow moving
+                            self:GoalFaceTowards(targetpos,true)
+                        elseif(IsValid(entitytarget)) then --running code
+                            local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
+                            local posgoal = self:GetPos() + posgoaladditi
+                
                             if (path:GetAge() > 0.5) then
-                                path:Compute(self, targetpos)
-                                self.LastTargetPos = targetpos
                                 self:ActionProcess() --do sap action stuff
+                                path:Compute(self, posgoal) --calc some shit, cmon baby, you got this, cmon, work dammit!
+                                self.LastTargetPos = posgoal
                             end
+                            self:GoalFaceTowards(posgoal,false)
                             path:Update(self)
                             self:LocoInterjection(path)
+                            
+                            if (SAPBOTDEBUG) then path:Draw() end
+                            -- if ( self.loco:IsStuck() ) then
+                            -- end
+                            TargetInRange = self:ScanEntities()
                         end
 
-                        self:GoalFaceTowards(targetpos,true)
-                    elseif(IsValid(entitytarget)) then --running code
-                        local posgoaladditi = (entitytarget:GetPos() - self:GetPos()) * distancemulti
-                        local posgoal = self:GetPos() + posgoaladditi
-            
-                        if (path:GetAge() > 0.5) then
-                            self:ActionProcess() --do sap action stuff
-                            path:Compute(self, posgoal) --calc some shit, cmon baby, you got this, cmon, work dammit!
-                            self.LastTargetPos = posgoal
+                        if (self.Fun_ActivePathingMode) then
+                            self:FunActivePathing()
                         end
-                        self:GoalFaceTowards(posgoal,false)
-                        path:Update(self)
-                        self:LocoInterjection(path)
-                        
-                        if (SAPBOTDEBUG) then path:Draw() end
-                        -- if ( self.loco:IsStuck() ) then
-                        -- end
-                        TargetInRange = self:ScanEntities()
+                        coroutine.yield()
                     end
-
-                    if (self.Fun_ActivePathingMode) then
-                        self:FunActivePathing()
-                    end
-                    coroutine.yield()
-                end
+                end --skip stuff cause cannot friendly fire?
                 self.IsAttacking = false
                 self.AttackMode = 0
 
@@ -1833,6 +1900,7 @@ function ENT:RunBehaviour()
     end
     if (SERVER) then
         self:SetNW2String("Sap_Name", self.Sap_Name)
+        self:RefreshTeamData()
     end
     self.Spawning = false
     
@@ -2337,7 +2405,7 @@ function ENT:Think()
 
     if ( CLIENT ) then
         if (!(self.ChatSent == (self:GetNW2String("sap_lastchatlog")))) then
-            if (!SAPBOTHIDECHAT) then chat:AddText(SAPBOTCOLOR, self:GetNW2String("Sap_Name"), Color(255,255,255,255), ": "..self:GetNW2String("sap_lastchatlog")) end
+            if (!SAPBOTHIDECHAT) then chat:AddText(self:GetSapColor(), self:GetNW2String("Sap_Name"), Color(255,255,255,255), ": "..self:GetNW2String("sap_lastchatlog")) end
             table.insert(_Sapbot_Chatlog,(self:GetNW2String("Sap_Name")..": "..self:GetNW2String("sap_lastchatlog")))
             self.ChatSent = self:GetNW2String("sap_lastchatlog")
         end
@@ -2368,7 +2436,7 @@ function ENT:Think()
                     local pitch = math.acos(math.Clamp(normal:Dot(xyNormal), -1, 1))
                     local cos = math.cos(pitch)
                     normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
-                    render.DrawQuadEasy(pos, normal, scaling, scaling,SAPBOTCOLOR, 180)
+                    render.DrawQuadEasy(pos, normal, scaling, scaling,self:GetSapColor(), 180)
                 end
             end
         end)
@@ -2394,7 +2462,7 @@ function ENT:Think()
                 local cos = math.cos(pitch)
                 normal = Vector( xyNormal.x * cos, xyNormal.y * cos, math.sin(pitch))
 
-                render.DrawQuadEasy(pos, normal, scaling, scaling,SAPBOTCOLOR, 180)
+                render.DrawQuadEasy(pos, normal, scaling, scaling,self:GetSapColor(), 180)
             end
         end)
         hook.Add('PreDrawEffects','sapDebugExtra3D'..self:EntIndex(),function()
@@ -2408,16 +2476,16 @@ function ENT:Think()
             local physaabbOne physaabbTwo = self:GetPhysicsObject():GetAABB()
 
             if(SAPBOTDEBUG) then
-                render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, SAPBOTCOLOR, true)
+                render.DrawWireframeBox(pos, phys:GetAngles(), posModelOffsetMin, posModelOffsetMax, self:GetSapColor(), true)
                 --print(table.ToString(self.Fun_ActivePath, "Fun_ActivePath", true))
                 --print(tostring(self.Fun_ActivePath))
                 pos = pos + self:GetActivePathBasePos();
                 if (self:GetNWInt("activePathNetLength", -1) > -1) then
                     for entryNum = 0, self:GetNWInt("activePathNetLength", -1) do
                         if (entryNum == 0) then
-                            render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
+                            render.DrawLine((pos),(self:GetNWVector("activePathS"..entryNum,pos)),Color(math.Clamp(self:GetSapColor().r - 105,0,255),self:GetSapColor().g,math.Clamp(self:GetSapColor().b - 105,0,255),255),true)
                         else
-                            render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(math.Clamp(SAPBOTCOLOR.r - 105,0,255),SAPBOTCOLOR.g,math.Clamp(SAPBOTCOLOR.b - 105,0,255),255),true)
+                            render.DrawLine((self:GetNWVector("activePathS"..entryNum - 1,pos)),self:GetNWVector("activePathS"..entryNum,pos),Color(math.Clamp(self:GetSapColor().r - 105,0,255),self:GetSapColor().g,math.Clamp(self:GetSapColor().b - 105,0,255),255),true)
                         end
                     end
                 end
@@ -2435,7 +2503,7 @@ function ENT:Think()
                 local pos1 = self:GetHeadHeightVector() + self:GetPos()
                 local tangent = Vector(0,0,0)
 
-                DrawBeam(pos1, tangent, ent, SAPBOTCOLOR)
+                DrawBeam(pos1, tangent, ent, self:GetSapColor())
             end
         end)
     end

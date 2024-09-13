@@ -69,7 +69,14 @@ TOOL.ClientConVar = {
     ["sapainetmode"] = "0",
     ["sapainetmodekey"] = "",
     ["sapainetpersonality"] = "dynamic",
-    ["sapvotekickmode"] = "0"
+    ["sapvotekickmode"] = "0",
+
+    ["sapteam"] = "none",
+    ["sapteamcolor_r"] = "255",
+    ["sapteamcolor_g"] = "255",
+    ["sapteamcolor_b"] = "255",
+    ["sapteamforceagro"] = "0",
+    ["sapteamteamkill"] = "0"
 }
 
 local defaultvars = {
@@ -129,6 +136,36 @@ local defaultvars = {
     ["sapbotcreator_sapainetpersonality"] = "dynamic",
     ["sapbotcreator_sapvotekickmode"] = "0"
 }
+
+SapTeams = {
+    ["none"] = {
+        ["agro"] = false,
+        ["teamkill"] = false,
+        ["color"] = Color(255,255,255)
+    },
+    ["red team"] = {
+        ["agro"] = true,
+        ["teamkill"] = false,
+        ["color"] = Color(255,0,0)
+    },
+    ["blue team"] = {
+        ["agro"] = true,
+        ["teamkill"] = false,
+        ["color"] = Color(0,150,255)
+    },
+    ["chaos"] = {
+        ["agro"] = true,
+        ["teamkill"] = true,
+        ["color"] = Color(190,30,220)
+    }
+}
+
+local sapteamValu = CreateClientConVar("sapteam", "", true, true)
+local sapteamcolor_rValu = CreateClientConVar("sapteamcolor_r", "255", true, true)
+local sapteamcolor_gValu = CreateClientConVar("sapteamcolor_g", "255", true, true)
+local sapteamcolor_bValu = CreateClientConVar("sapteamcolor_b", "255", true, true)
+local sapteamforceagroValu = CreateClientConVar("sapteamforceagro", "0", true, true)
+local sapteamteamkillValu = CreateClientConVar("sapteamteamkill", "0", true, true)
 
 function TOOL:DrawToolScreen( width, height )
     --cool background
@@ -228,6 +265,23 @@ function TOOL:DefinePersonality(sapentity,dorandom) --defines the personality of
     sapentity.Fun_NoJump = (tobool(self:GetClientNumber("sapnojumpmode", 0)))
     sapentity.UseAIServer = (tobool(self:GetClientNumber("sapainetmode", 0)))
     sapentity.Fun_Votekick = (tobool(self:GetClientNumber("sapvotekickmode", 0)))
+    sapentity.Team = self:GetClientInfo("sapteam")
+    sapentity.TeamFriendlyFire = (tobool(self:GetClientNumber("sapteamteamkill", 0)))
+    sapentity.TeamAgroOthers = (tobool(self:GetClientNumber("sapteamforceagro", 0)))
+    if (Color(
+        self:GetClientNumber("sapteamcolor_r", 255),
+        self:GetClientNumber("sapteamcolor_g", 255),
+        self:GetClientNumber("sapteamcolor_b", 255)
+        ) == Color(255,255,255))
+    then
+        sapentity.TeamColor = nil
+    else
+        sapentity.TeamColor = Color(
+            self:GetClientNumber("sapteamcolor_r", 255),
+            self:GetClientNumber("sapteamcolor_g", 255),
+            self:GetClientNumber("sapteamcolor_b", 255)
+        )
+    end
 
     local sapgroqkey = self:GetClientInfo( "sapainetmodekey" )
     SAPAINETKEY = sapgroqkey
@@ -503,18 +557,24 @@ function GenConVarsForActions(panel) --generate checkboxes for action overrides 
     end
 end
 
+local checkBoxAggress = nil
+local checkBoxTeamKill = nil
+local teamColorBox = nil
+local teamColor_picker = nil
+local color_label_backer = nil
+local color_label_backer2 = nil
+local color_label_backer3 = nil
+local color_label_backer4 = nil
+local color_label = nil
+
 function TOOL.BuildCPanel(panel)
 	panel:Help('The specifications the S.A.P Bot should be created with')
 
 	panel:Help('- - - Presets - - -')
-
-
 	local convars = {}
-
     for k, v in pairs(defaultvars) do
         convars[#convars + 1] = k
     end
-
 	panel:AddControl("ComboBox", {
 		Options = {
 			["S.A.P Bot"] = defaultvars
@@ -524,6 +584,256 @@ function TOOL.BuildCPanel(panel)
 		MenuButton = "1",
 		Folder = "sapbotcreatordata"
 	})
+
+    panel:Help('- - - Team - - -')
+    --local teamBox = panel:ComboBox("Team","sapbotcreator_sapteam")
+
+    local teamPanel = vgui.Create("DPanel")
+    teamPanel:SetParent(panel)
+    teamPanel:SetSize(200, 100)
+    panel:AddItem(teamPanel)
+
+    local teamBox = vgui.Create( "DComboBox", teamPanel)
+    teamBox:SetConvar("sapteam")
+    teamBox:SetSortItems(false)
+    teamBox:SetPos(10, 10)
+    teamBox:SetSize(200, 20)
+
+    function SapTeamDataRead() --get SapTeams table from file if found
+        if !(file.Exists('sapbot','DATA')) then file.CreateDir('sapbot') end --confirm the dir
+        if (file.Exists("sapbot/sap_teams.txt",'DATA')) then
+            SapTeams = util.JSONToTable(util.Decompress(file.Read("sapbot/sap_teams.txt", "DATA")))
+        else
+            SapTeamDataWrite()
+        end
+        teamBox:Clear()
+        teamBox:AddChoice("none","none")
+        teamBox:AddSpacer()
+        for teamName, team in pairs(SapTeams) do
+            if (teamName != "none") then
+                teamBox:AddChoice(teamName,teamName)
+            end
+        end
+    end
+    function SapTeamDataWrite() --write SapTeams table to file
+        if !(file.Exists('sapbot','DATA')) then file.CreateDir('sapbot') end --confirm the dir
+        file.Write("sapbot/sap_teams.txt",util.Compress(util.TableToJSON(SapTeams)))
+        teamBox:Clear()
+        teamBox:AddChoice("none","none")
+        teamBox:AddSpacer()
+        for teamName, team in pairs(SapTeams) do
+            if (teamName != "none") then
+                teamBox:AddChoice(teamName,teamName)
+            end
+        end
+    end
+    local isNoneTeam = false
+
+    SapTeamDataRead()
+    local lastTeamColor = Color(255,255,255)
+    teamBox:ChooseOption("none",0)
+    teamBox:OnSelect(teamBox,0,"none")
+
+    function setTeamColorVisuals(col)
+        if (teamColorBox != nil) then
+            local theText = ("RGB Value ( "..col.r..", "..col.g..", "..col.b.." )")
+            if (isNoneTeam) then
+                col = Color(255,255,255)
+                theText = ("No Team Color")
+            end
+            color_label:SetText(theText)
+            color_label_backer:SetText(theText)
+            color_label_backer2:SetText(theText)
+            color_label_backer3:SetText(theText)
+            color_label_backer4:SetText(theText)
+            color_label:SetColor(Color((col.r), (col.g), (col.b)))
+            local colBacker = Color(math.Round((255 - col.r) * 0.5), math.Round((255 - col.g) * 0.5), math.Round((255 - col.b) * 0.5))
+            color_label_backer:SetColor(colBacker)
+            color_label_backer2:SetColor(colBacker)
+            color_label_backer3:SetColor(colBacker)
+            color_label_backer4:SetColor(colBacker)
+
+            teamColorBox:SetColor(col)
+            teamColor_picker:SetRGB(col)
+            lastTeamColor = col
+            GetConVar("sapteamcolor_r"):SetFloat(col.r,255)
+            GetConVar("sapteamcolor_g"):SetFloat(col.g,255)
+            GetConVar("sapteamcolor_b"):SetFloat(col.b,255)
+        end
+    end
+
+    local forceSelectTeam = "none"
+    teamBox.OnSelect = function(self, index, value)
+        forceSelectTeam = value
+        GetConVar("sapteamforceagro"):SetBool(SapTeams[value].agro)
+        GetConVar("sapteamteamkill"):SetBool(SapTeams[value].teamkill)
+        GetConVar("sapteam"):SetString(value)
+        if (checkBoxAggress != nil) then
+            checkBoxAggress:SetValue(SapTeams[value].agro)
+            checkBoxTeamKill:SetValue(SapTeams[value].teamkill)
+        end
+        if (teamColorBox != nil) then
+            setTeamColorVisuals(SapTeams[value].color)
+        end
+    end
+    teamBox.Think = teamBox.Think or function() end
+    teamBox.Think = function(self)
+        local valueName, valueTex = self:GetSelected()
+        --print(valueTex)
+        if (valueTex == "none" && forceSelectTeam == "none") then
+            isNoneTeam = true
+            GetConVar("sapteamforceagro"):SetBool(false)
+            GetConVar("sapteamteamkill"):SetBool(true)
+            GetConVar("sapteam"):SetString("none")
+            --print(GetConVar("sapbotcreator_sapteamteamkill"):GetBool())
+            if (checkBoxAggress != nil) then
+                checkBoxAggress:SetValue(GetConVar("sapteamforceagro"):GetBool())
+                checkBoxTeamKill:SetValue(GetConVar("sapteamteamkill"):GetBool())
+            end
+            if (teamColorBox != nil) then
+                setTeamColorVisuals(Color(255,255,255))
+            end
+        else
+            if (isNoneTeam) then
+                isNoneTeam = false
+            else
+                if (SapTeams[valueTex] != nil) then
+                    if (SapTeams[valueTex].color != nil) then
+                        if (lastTeamColor == Color(255,255,255)) then
+                            if (SapTeams[valueTex].color != Color(255,255,255)) then
+                                setTeamColorVisuals(SapTeams[valueTex].color)
+                                GetConVar("sapteam"):SetString(valueTex)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local textEntry = vgui.Create("DTextEntry", teamPanel)
+    textEntry:SetSize(100, 20)
+    textEntry:SetPos(25, 75)
+
+    -- Create a button to add a new entry
+    local addButton = vgui.Create("DButton", teamPanel)
+    addButton:SetSize(75, 20)
+    addButton:SetPos(25, 50)
+    addButton:SetText("Add New Team")
+    addButton.DoClick = function()
+        -- Get the text from the text entry box
+        local text = textEntry:GetValue()
+        if text ~= "" then
+            -- Add the new entry to the combo box
+            teamBox:AddChoice(text)
+            SapTeams[text] = {
+                ["agro"] = GetConVar("sapteamforceagro"):GetBool(),
+                ["teamkill"] = GetConVar("sapteamteamkill"):GetBool(),
+                ["color"] = Color(
+                    GetConVar("sapteamcolor_r"):GetFloat(),
+                    GetConVar("sapteamcolor_g"):GetFloat(),
+                    GetConVar("sapteamcolor_b"):GetFloat()
+                )
+            }
+            SapTeamDataWrite()
+            textEntry:SetText("")
+        end
+    end
+    -- Create a button to remove the selected entry
+    local removeButton = vgui.Create("DButton", teamPanel)
+    removeButton:SetSize(75, 20)
+    removeButton:SetPos(125, 50)
+    removeButton:SetText("Remove Team")
+    removeButton.DoClick = function()
+        local valueId = teamBox:GetSelectedID()
+        local valueName, valueVal = teamBox:GetSelected()
+        if (valueId > 1) then
+            table.removekey(SapTeams, valueName)
+            SapTeamDataWrite()
+        end
+    end
+    local teamDForm = vgui.Create("DForm", teamPanel) --dropdown
+    panel:AddItem(teamDForm)
+    teamDForm:SetName("Team data")
+    --local teamDataDropdownInside = vgui.Create("DPanel",teamDForm)
+    --teamPanel:SetBackgroundColor(Color(185,185,185))
+
+    checkBoxAggress = teamDForm:CheckBox('Force Aggression To Other Teams', 'sapteamforceagro')
+    checkBoxTeamKill = teamDForm:CheckBox('Can Team kill', 'sapteamteamkill')
+    teamDForm:Help("S.A.P Bot Team theme color")
+    --background panel
+    BGPanel = vgui.Create("DPanel",teamDForm)
+    BGPanel:SetParent(teamDForm)
+    BGPanel:SetSize(200, 200)
+    teamDForm:AddItem(BGPanel)
+    --color label
+    color_label_backer = Label("Color( 255, 255, 255 )", BGPanel)
+    color_label_backer:SetPos(41, 161)
+    color_label_backer:SetSize(150, 20)
+    color_label_backer:SetHighlight(true)
+    color_label_backer:SetColor(Color(0, 127, 0))
+    color_label_backer2 = Label("Color( 255, 255, 255 )", BGPanel)
+    color_label_backer2:SetPos(39, 159)
+    color_label_backer2:SetSize(150, 20)
+    color_label_backer2:SetHighlight(true)
+    color_label_backer2:SetColor(Color(0, 127, 0))
+    color_label_backer3 = Label("Color( 255, 255, 255 )", BGPanel)
+    color_label_backer3:SetPos(39, 159)
+    color_label_backer3:SetSize(150, 20)
+    color_label_backer3:SetHighlight(true)
+    color_label_backer3:SetColor(Color(0, 127, 0))
+    color_label_backer4 = Label("Color( 255, 255, 255 )", BGPanel)
+    color_label_backer4:SetPos(39, 159)
+    color_label_backer4:SetSize(150, 20)
+    color_label_backer4:SetHighlight(true)
+    color_label_backer4:SetColor(Color(0, 127, 0))
+    color_label = Label("Color( 255, 255, 255 )", BGPanel)
+    color_label:SetPos(40, 160)
+    color_label:SetSize(150, 20)
+    color_label:SetHighlight(true)
+    color_label:SetColor(Color(0, 255, 0))
+    --color picker
+    teamColor_picker = vgui.Create("DRGBPicker", BGPanel)
+    teamColor_picker:SetPos(5, 5)
+    teamColor_picker:SetSize(30, 190)
+    --color cube
+    teamColorBox = vgui.Create("DColorCube", BGPanel)
+    teamColorBox:SetPos(40, 5)
+    teamColorBox:SetSize(155, 155)
+    --when the picked color is changed
+    function teamColor_picker:OnChange(col)
+        if (isNoneTeam) then col = Color(255,255,255) end
+        local h = ColorToHSV(col)
+        local _, s, v = ColorToHSV(teamColorBox:GetRGB())
+        --mix together
+        col = HSVToColor(h, s, v)
+        teamColorBox:SetColor(col)
+        UpdateColors(col) 
+    end
+    function teamColorBox:OnUserChanged(col)
+        UpdateColors(col)
+    end
+    function UpdateColors(col)
+        if (isNoneTeam) then col = Color(255,255,255) end
+        local theText = ("RGB Value ( "..col.r..", "..col.g..", "..col.b.." )")
+        color_label:SetText(theText)
+        color_label_backer:SetText(theText)
+        color_label_backer2:SetText(theText)
+        color_label_backer3:SetText(theText)
+        color_label_backer4:SetText(theText)
+        color_label:SetColor(Color((col.r), (col.g), (col.b)))
+        local colBacker = Color(math.Round((255 - col.r) * 0.5), math.Round((255 - col.g) * 0.5), math.Round((255 - col.b) * 0.5))
+        color_label_backer:SetColor(colBacker)
+        color_label_backer2:SetColor(colBacker)
+        color_label_backer3:SetColor(colBacker)
+        color_label_backer4:SetColor(colBacker)
+        SetClipboardText(color_label:GetText())
+
+        GetConVar("sapteamcolor_r"):SetFloat(col.r)
+        GetConVar("sapteamcolor_g"):SetFloat(col.g)
+        GetConVar("sapteamcolor_b"):SetFloat(col.b)
+    end
+
 	panel:Help("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ")
     panel:TextEntry( 'Name', 'sapbotcreator_sapname' )
     panel:CheckBox('Randomize the name','sapbotcreator_sapnamerandom')
@@ -565,7 +875,7 @@ function TOOL.BuildCPanel(panel)
     panel:Help("")
     local DiscordButton = vgui.Create( "DButton", panel )
     DiscordButton:SetText( "Join The Discord!" )
-    DiscordButton:SetPos( 65, 550 )
+    DiscordButton:SetPos( 65, 680 )
     DiscordButton:SetSize( 103, 27 )
     DiscordButton.DoClick = function()
         gui.OpenURL("https://discord.gg/8UMuEdDYEs")
