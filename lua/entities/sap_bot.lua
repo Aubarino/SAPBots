@@ -205,6 +205,9 @@ function ENT:GetShootPos() --the general direction ya shooting in in worldspace 
     return(self:GetPos() + self:GetHeadHeightVector() + self:GetForward())
 end
 
+function ENT:Freeze(frozen) --implement later
+end
+
 function ENT:ViewPunch() --used commonly by guns 'n such for recoil lol
 end
 
